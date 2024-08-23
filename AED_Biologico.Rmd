@@ -139,11 +139,15 @@ tpcqch <- rbind(tp_chirla,
 
 
 ```{r}
-RTP <- ggplot(tpcqch)+
-  geom_point(aes(Longitud, Peso))+
-  facet_wrap(.~specie)+
+TP <- ggplot(tpcqch) +
+  geom_point(aes(Longitud, Peso, color = specie)) +
+  geom_smooth(aes(Longitud, Peso),
+              method = "loess",
+             color = "black",
+              se = TRUE) +
+  facet_wrap(.~specie) +
   theme_bw()
-RTP
+TP
 ```
 
 ## Datos 2014-2015
