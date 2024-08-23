@@ -122,6 +122,8 @@ size2013 <- bind_rows(sizep01_13,
 
 ## relacion Talla Peso
 
+Análisis recopilados desde este [Repo](https://rpubs.com/jdmaestre/366409)
+
 ```{r}
 tp_coquina <- read_excel(here("DATA",
                               "Muestreo 200 ejemplares.xlsx"), 
