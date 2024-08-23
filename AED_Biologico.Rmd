@@ -1,0 +1,865 @@
+---
+title: "Analisis Exploratorio de Datos de la componente biologica"
+subtitle: "Proyecto RECLAM"
+author: "Mardones, M; García, Alejandro; Delgado, M"
+date:  "`r format(Sys.time(), '%d %B, %Y')`"
+bibliography: EDA_donux.bib
+csl: apa.csl
+link-citations: yes
+linkcolor: blue
+output: 
+  html_document:
+    fig-caption: yes
+    keep_md: true
+    toc: true
+    toc_deep: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    theme: cosmo
+    fontsize: 0.9em
+    linestretch: 1.7
+    html-math-method: katex
+    self-contained: true
+    code-tools: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup1}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.align = 'center',
+                      dev = 'jpeg',
+                      dpi = 300, 
+                      fig.align='center')
+#XQuartz is a mess, put this in your onload to default to cairo instead
+options(bitmapType = "cairo") 
+# (https://github.com/tidyverse/ggplot2/issues/2655)
+# Lo mapas se hacen mas rapido
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggridges)
+library(readxl)
+library(here)
+library(lubridate)
+library(readr)
+library(ggthemes)
+library(hrbrthemes)
+library(kableExtra)
+library(gtsummary)
+```
+Seteo el directorio
+
+
+```{r, include=FALSE}
+## Set path
+here::here("DATA")
+```
+
+
+
+
+# Contexto de las composiciones de tallas del monitoreo de Coquina y Chirla 
+
+El monitoreo de tallas considera dos compenentes. muestreo espacial, temporal y por arte de pesca (comercial y poblacional)
+
+# Metodología de manipulación de data
+
+Leer y juntar Data Base  provenientos de todos los muestreos, que datan desde el 2013. Cabe señalar que las bases de datos previas al 2020, tiene (o pueden contener) otras columnas como densidad, rendimiento y tallas. 
+
+
+## Datos Composiciones de Tallas
+
+```{r}
+Chirla <- read_excel(here("DATA",
+                          "Chirla 25_07_2024.xlsx"), 
+  sheet = "B1R"
+)
+
+```
+
+
+
+
+Corroboro nombres de los df y junto los datos del 2013
+
+```{r}
+names(sizep01_13) # enero
+names(sizec03_13) # marzo
+names(sizec05_13) # mayo
+names(sizep09_13)# sep
+names(sizep10_13) # oct
+names(sizep12_13) # dic
+names(sizec2013) # comercial hartos meses
+names(sizep2013) # poblacional hartos meses
+names(sizec12_13) # dic comercial
+names(sizep01_13) #enero
+```
+
+```{r}
+size2013 <- bind_rows(sizep01_13,
+                  sizec03_13,
+                  sizec05_13,
+                  sizep09_13,
+                  sizep10_13,
+                  sizep12_13,
+                  sizec2013,
+                  sizep2013,
+                  sizec12_13,
+                  sizep01_13) %>% 
+  mutate(
+    DIA = day(Date),
+    MES = month(Date),
+    ANO = year(Date)
+  )
+```
+
+## relacion Talla Peso
+
+```{r}
+tp_coquina <- read_excel(here("DATA",
+                              "Muestreo 200 ejemplares.xlsx"), 
+    sheet = "coquina") %>% 
+  mutate(specie = "CQ")
+tp_chirla <- read_excel(here("DATA",
+                              "Muestreo 200 ejemplares.xlsx"), 
+    sheet = "chirla") %>%
+  mutate(specie = "CH")
+
+tpcqch <- rbind(tp_chirla,
+                tp_coquina)
+```
+
+
+
+```{r}
+RTP <- ggplot(tpcqch)+
+  geom_point(aes(Longitud, Peso))+
+  facet_wrap(.~specie)+
+  theme_bw()
+RTP
+```
+
+## Datos 2014-2015
+
+Estos datos fueron compilados en dos archivos. Estos datos estan agrupados como frecuencias lo que dificulta su trabajo analitico, poor lo cual los desagregamos y dejamos como data crudo.
+
+Junto a ello, cambiamos el formato de las coliummnas siguiendo la logica del os datos del 2013.
+
+```{r}
+sizec14_15 <- read_excel("Data/Datos_13_14/Datos tallas 2014_2015/Datos totales/TALLAS_Com_2014-2015.xlsx") %>% 
+  select(c(1, 2, 3, 6, 7)) %>%
+  mutate(Number2 =round(Number), 0) %>% 
+  uncount(Number2) %>% 
+  select(-c(5,6))
+
+sizec14_15 <- sizec14_15 %>%
+  mutate(
+    rastro="COMERCIAL",
+    CAT=NA,
+    Categoria=NA,
+    size=NA,
+    ID_codificado_muestreo=NA
+    ) %>% 
+ rename(Sampling.point = "Station" ,
+                sizeE="Size")
+
+
+
+
+sizep14_15 <- read_excel("Data/Datos_13_14/Datos tallas 2014_2015/Datos totales/TALLAS_Pobl_2014-2015.xlsx") %>% 
+  select(c(1, 2, 3, 6, 7)) %>%
+  drop_na(Number) %>% 
+  mutate(Number2 =round(Number), 0) %>% 
+  uncount(Number2) %>% 
+  select(-c(5,6))
+
+sizep14_15 <- sizep14_15 %>%
+  mutate(
+    rastro="POBLACIONAL",
+    CAT=NA,
+    Categoria=NA,
+    size=NA,
+    ID_codificado_muestreo=NA
+    ) %>% 
+ rename(Sampling.point = "Station" ,
+                sizeE="Size")
+```
+
+Junto los artes de pesca y separo las fechas
+```{r}
+size14_15 <- bind_rows(sizec14_15,
+                       sizep14_15) %>% 
+  mutate(
+    DIA = day(Date),
+    MES = month(Date),
+    ANO = year(Date)
+  )
+```
+
+
+Separo las fechas
+
+## Datos 2016
+
+solo tengo datos del mes de agosto y sin punto de referencia
+
+```{r}
+# comercial
+sizec2016 <- read_excel(here("Data", 
+                             "Datos_13_14", 
+                             "Datos tallas 2016",
+                             "Muestreo coquina Doคana 23_08_2016.xls"),
+                             sheet = "Comercial", 
+                             skip = 3) %>% 
+  mutate(
+    Beach = NA,
+    Sampling.point = NA,
+    rastro="COMERCIAL",
+    CAT=NA,
+    Categoria=NA,
+    size=NA,
+    ID_codificado_muestreo=NA
+    ) %>% 
+  dplyr::rename(sizeE=Talla)
+sizec2016$Date <- ymd("2016-08-01")
+#poblacional
+sizep2016 <- read_excel(here("Data",
+                             "Datos_13_14", 
+                             "Datos tallas 2016",
+                             "Muestreo coquina Doคana 23_08_2016.xls"),
+                             sheet = "Poblacional", 
+                             skip = 3)
+df1 <- sizep2016 %>% 
+  select(1)
+df2 <- sizep2016 %>% 
+  select(3) %>% 
+  rename("Tall grande" ="Talla pequeña")
+
+sizep2016 <- bind_rows(df1, df2)%>% 
+  mutate(
+    Beach = NA,
+    Sampling.point = NA,
+    rastro="POBLACIONAL",
+    CAT=NA,
+    Categoria=NA,
+    size=NA,
+    ID_codificado_muestreo=NA
+    )%>% 
+  dplyr::rename(sizeE="Tall grande")
+
+sizep2016$Date <- ymd("2016-08-01")
+```
+
+uno los datos del 2016
+
+```{r}
+size2016 <- bind_rows(sizec2016,
+                      sizep2016)%>% 
+  mutate(
+    DIA = day(Date),
+    MES = month(Date),
+    ANO = year(Date)
+  )
+```
+
+
+## Datos 2017-2020
+
+estos datos tienen otros campos pero seguiremos la logica de los campos previos, es decir;
+
+[1] "sizeE"                  "Beach"                  "Sampling.point"        
+ [4] "rastro"                 "CAT"                    "Categoria"             
+ [7] "size"                   "ID_codificado_muestreo" "Date"                  
+[10] "DIA"                    "MES"                    "ANO" 
+
+
+```{r}
+# Datos 2020 size and dens and abundance join
+size2017 <- read.csv2(here("Data", 
+                           "Anterior a 2020", 
+                           "data_ieo_2017_def.csv"),
+                      dec=".") %>% 
+  select(c(22, 3, 4, 12, 19, 20, 21, 2)) %>% 
+   mutate(
+    ID_codificado_muestreo=NA
+    )%>% 
+  rename(sizeE=SizeE,
+         size=Size)
+  
+
+size2018 <- read.csv2(here("Data", 
+                           "Anterior a 2020", 
+                           "data_ieo_2018_def.csv"), 
+                      dec=".") %>% 
+  select(c(22, 3, 4, 12, 19, 20, 21, 2)) %>% 
+   mutate(
+    ID_codificado_muestreo=NA
+    ) %>% 
+  rename(sizeE=SizeE,
+         size=Size)
+size2019 <- read.csv2(here("Data", 
+                           "Anterior a 2020",
+                           "data_ieo_2019_def.csv"), 
+                      dec=".") %>% 
+  select(c(22, 3, 4, 12, 19, 20, 21, 2)) %>% 
+   mutate(
+    ID_codificado_muestreo=NA
+    ) %>% 
+  rename(sizeE=SizeE,
+         size=Size)
+
+
+size2020 <- read.csv2(here("Data", 
+                           "Anterior a 2020", 
+                           "data_ieo_2020_def.csv"), 
+                      dec=".") %>% 
+  select(c(22, 3, 4, 12, 19, 20, 21, 2)) %>% 
+   mutate(
+    ID_codificado_muestreo=NA
+    ) %>% 
+  rename(sizeE=SizeE,
+         size=Size)
+```
+
+Same names. Could merge the DF
+
+```{r}
+size_17_20 <- rbind(size2017,
+                    size2018,
+                    size2019,
+                    size2020)
+size_17_20$Date <- dmy(size_17_20$Date)
+```
+
+Comprubo la estructura
+
+```{r}
+summary(size_17_20)
+```
+
+Change `Date` columns from `character`to `Date` format
+
+```{r}
+# separo los meses , dias y años
+# Separar en columnas de día, mes y año
+
+size_17_20<- size_17_20 %>%
+  mutate(
+    DIA = day(Date),
+    MES = month(Date),
+    ANO = year(Date)
+  )
+unique(size_17_20$ANO)
+```
+a qui tengo diferencias con los nombres. Verificar cuando se junten todos los años
+
+
+## Data 2020-2024
+
+```{r}
+size2021 <- read_excel(here("Data", 
+                            "Posterior 2020", 
+                            "Data_size_Coquina_2021.xlsx"), 
+                       sheet = "Coquina_donax") %>% 
+  select(-c(1, 10, 11))  
+size2022 <- read_excel(here("Data",
+                            "Posterior 2020", 
+                            "Data_size_Coquina_2022.xlsx"),  
+                       sheet = "Coquina_donax") %>% 
+  select(-c(1, 2))  
+size2023 <- read_excel(here("Data", 
+                            "Posterior 2020",
+                            "Data_size_Coquina_2023.xlsx"),  
+                       sheet = "Coquina_Donax") %>% 
+  select(-c(1, 2))  
+
+size2024 <- read_excel(here("Data", 
+                            "Posterior 2020",
+                            "Data_size_Coquina_2024.xlsx"),  
+                       sheet = "Coquina_Donax") %>% 
+  select(-c(1, 2)) 
+```
+
+
+
+Este aspecto se trabaja de forma de ponderación ad-hoc descrita en la
+Figure \@ref(fig:edaplot1)
+
+
+Now, we handling data 2021-2023. Same columns data 2017-2020
+
+```{r}
+size_21_24 <- rbind(size2021,
+                    size2022,
+                    size2023,
+                    size2024)
+```
+Separate `Date` column
+
+```{r}
+size_21_24<- size_21_24 %>%
+  mutate(
+    DIA = day(Date),
+    MES = month(Date),
+    ANO = year(Date)
+  )
+unique(size_21_24$rastro)
+
+table(size_21_24$ANO, size_21_24$MES)
+```
+
+## Unir los datos desde el 2013 al 2023
+
+```{r}
+# join data
+sizeall <- rbind(size2013,
+                 size14_15,
+                 size2016,
+                 size_17_20,
+                 size_21_24) 
+```
+
+check dimension. ahora la base completa tiente 21 mil registros
+
+```{r}
+dim(sizeall)
+table(sizeall$ANO)
+table(sizeall$Beach)
+table(sizeall$Sampling.point)
+table(sizeall$rastro)
+table(sizeall$ANO, sizeall$MES)
+```
+
+Rename values
+
+```{r}
+sizeall2 <- sizeall %>%
+  drop_na(rastro) %>% 
+  mutate(rastro = str_replace_all(rastro, " ", ""),
+         rastro = str_replace_all(rastro, "COMERCIALNEW", "COMERCIAL"),
+         Beach = str_replace_all(Beach, "Donana", "Donaña"),
+         Beach = str_replace_all(Beach, " ", ""),
+         Beach = str_replace_all(Beach, "Matalascanas", "Matalascañas")) %>% 
+  mutate(MES = case_when(
+    MES == 1 ~ "January",
+    MES == 2 ~ "February",
+    MES == 3 ~ "March",
+    MES == 4 ~ "April",
+    MES == 5 ~ "May",
+    MES == 6 ~ "June",
+    MES == 7 ~ "July",
+    MES == 8 ~ "August",
+    MES == 9 ~ "September",
+    MES == 10 ~ "October",
+    MES == 11 ~ "November",
+    MES == 12 ~ "December")) %>% 
+  mutate(MES = factor(MES, levels = c("January", 
+                                          "February", 
+                                          "March",
+                                          "April",
+                                          "May",
+                                          "June",
+                                          "July",
+                                          "August",
+                                          "September",
+                                          "October",
+                                          "November", 
+                                          "December")))
+
+unique(sizeall2$Beach)
+unique(sizeall2$rastro)
+unique(sizeall2$MES)
+table(sizeall2$ANO, sizeall2$MES)
+```
+## Save data
+
+```{r eval=FALSE}
+#saveRDS(sizeall2, "tallas_13_24.RDS")
+#write_csv(sizeall2, "tallas_13_24.csv")
+sizeall2 <- readRDS("tallas_13_24.RDS")
+```
+
+
+some plots
+
+```{r warning=F, message=FALSE}
+nall <- ggplot(sizeall2 %>% 
+                 drop_na(sizeE, 
+                         MES), 
+               aes(x=sizeE, 
+                   y = MES,
+                  fill= as.factor(rastro)))+
+   geom_density_ridges(stat = "binline", 
+                      bins = 40, 
+                      scale = 1.5,
+                      alpha=0.7)+
+   # geom_density_ridges2(stat = "bin",
+   #                     position = "points_sina",
+   #                    scale = 1.5,
+   #                    alpha=0.7)+
+  facet_wrap(.~ANO, ncol=6) +
+  geom_vline(xintercept = 10.8, color = "red")+
+  scale_fill_viridis_d(option="B",
+                       name="Gear")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  theme_few()+
+  theme(legend.position = "bottom")+
+  xlab("Longitud (mm.)")+
+  ylab("")+
+  xlim(0,40)
+#scale_x_discrete((limits = rev(levels(talla2021$ANO_ARR))))+
+nall
+```
+
+
+```{r}
+nallbeach <- ggplot(sizeall2%>% 
+                      filter(rastro!="COMERCIAL"), 
+               aes(x=sizeE, 
+                   y = as.factor(MES),
+                  fill= as.factor(Sampling.point)))+
+  geom_density_ridges2(stat = "density_ridges",
+                       position = "points_sina", 
+                      scale = 1.2,
+                      alpha=0.7)+
+  facet_wrap(.~ANO, ncol=7) +
+  geom_vline(xintercept = 10.8, color = "red")+
+  scale_fill_viridis_d(option="F",
+                       name="Beach")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  theme_few()+
+  theme(legend.position = "bottom")+
+  xlab("Longitud (mm.)")+
+  ylab("")+
+  xlim(0,40)
+#scale_x_discrete((limits = rev(levels(talla2021$ANO_ARR))))+
+nallbeach
+```
+
+just Poblacional sample
+
+```{r}
+pobeach <- ggplot(sizeall2 %>% 
+                      filter(rastro!="COMERCIAL"), 
+               aes(x=sizeE, 
+                   y = as.factor(MES),
+                  fill= as.factor(Sampling.point)))+
+  geom_density_ridges(stat = "binline", 
+                      bins = 10, 
+                      scale = 1.2,
+                      alpha=0.7)+
+  facet_wrap(.~ANO, ncol=7) +
+  geom_vline(xintercept = 10.8, color = "red")+
+  scale_fill_viridis_d(option="G",
+                       name="Beach")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  theme_few()+
+  theme(legend.position = "bottom")+
+  xlab("Longitud (mm.)")+
+  ylab("")+
+  xlim(0,40)
+#scale_x_discrete((limits = rev(levels(talla2021$ANO_ARR))))+
+pobeach
+```
+
+justm Comercial sample
+
+```{r}
+combeach <- ggplot(sizeall2 %>% 
+                      filter(rastro!="POBLACIONAL"), # saco poblacional
+               aes(x=sizeE, 
+                   y = as.factor(MES),
+                  fill= as.factor(Beach)))+
+  geom_density_ridges(stat = "binline", 
+                      bins = 40, 
+                      scale = 1.2,
+                      alpha=0.7)+
+  facet_wrap(.~ANO, ncol=7) +
+  geom_vline(xintercept = 10.8, color = "red")+
+  scale_fill_viridis_d(option="F",
+                       name="Beach")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  theme_few()+
+  theme(legend.position = "bottom")+
+  xlab("Longitud (mm.)")+
+  ylab("")+
+  xlim(0,40)
+#scale_x_discrete((limits = rev(levels(talla2021$ANO_ARR))))+
+combeach
+```
+
+Ahora plotear el ultimo mes para el informe
+
+```{r}
+combeachago23 <- ggplot(sizeall2 %>% 
+                      filter(ANO==2024), 
+               aes(x=sizeE, y=Beach, fill=as.character(rastro)))+
+  geom_density_ridges(stat = "binline", 
+                      bins = 40, 
+                      scale = 1.2,
+                      alpha=0.8)+
+  scale_fill_manual(values = c("red", "blue"))+
+  facet_wrap(.~MES, ncol=5) +
+  geom_vline(xintercept = 10.8, color = "red")+
+  theme_few()+
+  theme(legend.position = "bottom")+
+  xlab("Longitud (cm.)")+
+  ylab("")+
+  xlim(0,40)+
+  labs(title= "Survey 2024")
+#scale_x_discrete((limits = rev(levels(talla2021$ANO_ARR))))+
+combeachago23
+```
+
+another way to viz is a scatter plot
+
+```{r warning=FALSE, message=FALSE}
+sizemean <-sizeall2 %>% 
+  dplyr::group_by(ANO, 
+                  MES, 
+                  rastro,
+                  Sampling.point) %>%
+  dplyr::summarise(avg=mean(sizeE))
+#kableExtra::kable(coutlength, format = "html")
+```
+
+Promedio por tipo de rastro.
+
+```{r, fig.align="center", warning=FALSE}
+pmea <- ggplot(sizemean %>% 
+                 drop_na(avg, Sampling.point), 
+               aes(as.factor(ANO), avg,
+               color=rastro))+
+    geom_boxplot(show.legend = T,
+               alpha=.7) +
+    #geom_jitter(width = 2.5)+
+    theme_few()+ 
+    scale_y_continuous(breaks = seq(from = 2013, to = 2023, by = 1))+
+    theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust= 0.5,
+                                     size = 12),
+          axis.text.y = element_text(size = 12),
+          legend.position = "bottom")+
+    guides(fill = guide_legend(reverse=F))+
+    scale_color_viridis_d(option="H",
+                          name="")+
+    ylab("Tallas Medias (mm)") +
+    xlab("") +
+  ylim(5,35)+
+    ggtitle("Tallas medias coquina por año")
+pmea
+```
+scatter plot Por Punto
+
+```{r, fig.align="center", warning=FALSE}
+pmea2 <- ggplot(sizemean %>% 
+                 drop_na(avg, Sampling.point), 
+               aes(as.factor(ANO), avg,
+               color=rastro,
+               group=rastro))+
+    geom_point(show.legend = T,
+               alpha=.7) +
+  geom_smooth(method = "lm")+
+    theme_few()+ 
+  facet_wrap(.~Sampling.point,
+             ncol=5)+
+    scale_y_continuous(breaks = seq(from = 2013, to = 2023, by = 1))+
+    theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust= 0.5,
+                                     size = 8),
+          axis.text.y = element_text(size = 8),
+          legend.position = "bottom")+
+    guides(fill = guide_legend(reverse=F))+
+    scale_color_viridis_d(option="H",
+                          name="")+
+    ylab("Tallas Medias (mm)") +
+    xlab("") +
+  ylim(5,35)+
+    ggtitle("Tallas medias coquina por año")
+pmea2
+```
+
+por playa
+
+```{r, fig.align="center", warning=FALSE}
+ppla <- ggplot(sizemean %>%
+                 filter(rastro!="COMERCIAL") %>% 
+                 arrange(Sampling.point) %>%
+                 drop_na(avg, Sampling.point), 
+               aes(as.character(Sampling.point), avg,
+               color=Sampling.point))+
+    geom_boxplot(show.legend = T,
+               alpha=.7) +
+  geom_jitter()+
+    theme_few()+ 
+  #facet_wrap(.~ANO, ncol=3)+
+    scale_y_continuous(breaks = seq(from = 2013, to = 2023, by = 1))+
+    theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust= 0.5,
+                                     size = 8),
+          axis.text.y = element_text(size = 8),
+          legend.position = "bottom")+
+    guides(fill = guide_legend(reverse=F))+
+    scale_color_viridis_d(option="H",
+                          name="")+
+    ylab("Tallas Medias (mm)") +
+    xlab("") +
+  ylim(5,35)+
+    ggtitle("Tallas medias coquina por playa")
+ppla
+```
+
+
+## Modelos 
+comprobar tendencia estadisticamente para las tendencias de ambos sistemas de muestreo en las tallas.
+
+```{r}
+# comercial
+sizemeanc <- sizemean %>% 
+  filter(rastro =="COMERCIAL")
+
+modelc <- lm(avg ~ANO, data=sizemeanc)
+
+# poblacional
+sizemeanp <- sizemean %>% 
+  filter(rastro =="POBLACIONAL")
+
+modelp <- lm(avg ~ANO, data=sizemeanp)
+```
+
+usamees la función `gtsummary` [@gtsummary] para visualizar los resultados de los modelos.
+
+```{r}
+tp <- tbl_regression(modelp, 
+                     estimate_fun = function(x) 
+                       style_number(x, digits = 3))
+tc <- tbl_regression(modelc, 
+                     estimate_fun = function(x) 
+                       style_number(x, digits = 3))
+```
+
+Tabla de cada tendencia de tallas por años
+
+```{r}
+tp
+```
+
+
+```{r}
+tc
+```
+
+# Prepara data para modelacion
+
+
+en este caso definimos dos tipos de estructura de tallas, dependientes (rastro comercial) e independientes (rastro poblacional) a la pesquería.
+
+Generamos dos matrces por separado para fines del template de `SS3`
+
+```{r}
+# poblacional
+tallapob <- sizeall2 %>% 
+  filter(rastro=="POBLACIONAL")
+tallapob$CATL <- as.numeric(as.character(cut(x = tallapob$sizeE, 
+                                                    breaks = seq(0,50,1), 
+                                                  labels = seq(0,49,1), 
+                                                  right = FALSE)))
+# comercial
+tallacom <- sizeall2 %>% 
+  filter(rastro=="COMERCIAL")
+tallacom$CATL <- as.numeric(as.character(cut(x = tallacom$sizeE, 
+                                                    breaks = seq(0,50,1), 
+                                                  labels = seq(0,49,1), 
+                                                  right = FALSE)))
+
+
+tallapob2<- table(tallapob$ANO, tallapob$CATL)
+tallacom2<- table(tallacom$ANO, tallacom$CATL)
+
+tail(tallapob2, 10)
+tail(tallacom2, 10)
+```
+Ahora escribo los datos en un `csv`
+
+```{r eval=FALSE}
+tatodos <-  list(tallacom2, tallapob2)
+# Especifica los nombres de los archivos CSV
+ttnames <- c("tallacom.csv", "tallapob.csv")
+# Guarda cada dataframe en un archivo CSV
+for (i in seq_along(tatodos)) {
+  write.csv(tatodos[[i]], 
+            file = ttnames[i])
+}
+```
+
+## Tabla de Proporciones
+
+```{r eval=F}
+summary(sizeall2)
+sizeallfil <- na.omit(sizeall2)
+summary(sizeallfil)
+# Definir la función para calcular proporciones por grupo
+# Convertir a tibble para usar dplyr
+mtcars_tbl <- as_tibble(sizeallfil)
+
+# Calcular proporciones por grupos
+proporciones_por_grupo <- mtcars_tbl %>%
+  group_by(ANO, rastro, Sampling.point) %>%
+  summarise(count = n()) %>%
+  group_by(ANO) %>%
+  mutate(prop = count / sum(count)) %>%
+  ungroup()
+
+# Ver los resultados
+print(proporciones_por_grupo)
+unique(sizeall2$ANO
+       )
+
+# Utiliza el conjunto de datos mtcars
+data(mtcars)
+
+# Convertir a tibble para usar dplyr
+mtcars_tbl <- as_tibble(mtcars)
+
+# Calcular frecuencias por grupos
+frecuencias_por_grupo <- mtcars_tbl %>%
+  group_by(cyl, gear) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+# Ver los resultados
+print(frecuencias_por_grupo)
+
+
+```
+
+# Dudas.
+
+### 2013
+- el año 2013 no tiene asingación de sampling point
+- el año 2013 no tiene datos del mes 7
+
+
+### 2014 y 2015
+
+- no hay datos de los meses ago-dic en poblacional para el 2015
+
+```{r}
+table(size14_15$ANO, size14_15$MES)
+```
+
+
+- el año 2016 solo tiene un muestreo, cuando fue realizado y donde?
+
+
+# Referencias
