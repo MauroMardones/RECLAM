@@ -1,7 +1,7 @@
 ---
-title: "Analisis Exploratorio de Datos de la componente biologica"
+title: "Analisis Exploratorio de Datos de la componente biológica"
 subtitle: "Proyecto RECLAM"
-author: "Mardones, M; García, Alejandro; Delgado, M"
+author: "Mardones, M; García, A.; Delgado, M."
 date:  "`r format(Sys.time(), '%d %B, %Y')`"
 bibliography: EDA_donux.bib
 csl: apa.csl
@@ -56,14 +56,10 @@ library(gtsummary)
 ```
 Seteo el directorio
 
-
 ```{r, include=FALSE}
 ## Set path
 here::here("DATA")
 ```
-
-
-
 
 # Contexto de las composiciones de tallas del monitoreo de Coquina y Chirla 
 
@@ -76,15 +72,31 @@ Leer y juntar Data Base  provenientos de todos los muestreos, que datan desde el
 
 ## Datos Composiciones de Tallas
 
+### Chirla
+
 ```{r}
-Chirla <- read_excel(here("DATA",
-                          "Chirla 25_07_2024.xlsx"), 
-  sheet = "B1R"
+Chirla2P1R <- read_excel(here("DATA",
+                          "Chirla_RECLAM.xlsx"), 
+  sheet = c("2P1R")
 )
+Chirla2P2 <- read_excel(here("DATA",
+                          "Chirla_RECLAM.xlsx"), 
+  sheet = c("2P2")
+)
+
+ch_toda <- rbind(Chirla2P1R,
+                 Chirla2P2)
+
 
 ```
 
-
+```{r}
+boxplot <- ggplot(ch_toda)+
+  geom_boxplot(aes(y=LONG))+
+  facet_wrap(.~ZONA)+
+  theme_bw()
+boxplot
+```
 
 
 Corroboro nombres de los df y junto los datos del 2013
@@ -120,7 +132,7 @@ size2013 <- bind_rows(sizep01_13,
   )
 ```
 
-## relacion Talla Peso
+## Relacion Talla Peso
 
 Análisis recopilados desde este [Repo](https://rpubs.com/jdmaestre/366409)
 
@@ -142,12 +154,14 @@ tpcqch <- rbind(tp_chirla,
 
 ```{r}
 TP <- ggplot(tpcqch) +
-  geom_point(aes(Longitud, Peso, color = specie)) +
+  geom_point(aes(Longitud, Peso, 
+                 color = specie)) +
   geom_smooth(aes(Longitud, Peso),
-              method = "loess",
+              method = "gam",
              color = "black",
               se = TRUE) +
-  facet_wrap(.~specie) +
+  facet_wrap(.~specie,
+             scale="free_y") +
   theme_bw()
 TP
 ```
