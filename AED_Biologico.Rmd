@@ -67,7 +67,7 @@ El monitoreo de tallas considera dos compenentes. muestreo espacial, temporal y 
 
 # Metodología de manipulación de data
 
-Leer y juntar Data Base  provenientos de todos los muestreos, que datan desde el 2013. Cabe señalar que las bases de datos previas al 2020, tiene (o pueden contener) otras columnas como densidad, rendimiento y tallas. 
+Leer y juntar Data Base  provenientos de todos los muestreos. Cabe señalar que las bases de datos previas al 2020, tiene (o pueden contener) otras columnas como densidad, rendimiento y tallas. 
 
 
 ## Datos Composiciones de Tallas
@@ -75,62 +75,129 @@ Leer y juntar Data Base  provenientos de todos los muestreos, que datan desde el
 ### Chirla
 
 ```{r}
-Chirla2P1R <- read_excel(here("DATA",
-                          "Chirla_RECLAM.xlsx"), 
-  sheet = c("2P1R")
+# Leo todos los archivos de Chirla
+archivoagosto <- "DATA/Chirla 09_08_2024.xlsx"
+archivojunio <- "DATA/Chirla 25_07_2024.xlsx"
+archivo_sept <- "DATA/Chirla 16_09_2024.xlsx"  # Cambiar el nombre del archivo para septiembre
+archivo_oct <- "DATA/Chirla 23_10_2024.xlsx"  # Cambiar el nombre del archivo para octubre
+
+# Función para leer y combinar hojas de un archivo
+leer_y_combinar <- function(archivo) {
+    hojas <- excel_sheets(archivo)
+  hojas_filtradas <- hojas[!hojas %in% c("Comercial", "Datos lance")]
+  datos <- lapply(hojas_filtradas, function(hoja) {
+    read_excel(archivo, sheet = hoja)
+  }) %>%
+    bind_rows()
+  return(datos)
+}
+```
+
+Leemos los archivos y combina los resultados
+
+```{r}
+total <- bind_rows(
+  leer_y_combinar(archivo_septoct),
+  leer_y_combinar(archivojunio),
+  leer_y_combinar(archivoagosto),
+  leer_y_combinar(archivo_oct)   
 )
-Chirla2P2 <- read_excel(here("DATA",
-                          "Chirla_RECLAM.xlsx"), 
-  sheet = c("2P2")
-)
-
-ch_toda <- rbind(Chirla2P1R,
-                 Chirla2P2)
-
-
 ```
+
+Miro `NA`
 
 ```{r}
-boxplot <- ggplot(ch_toda)+
-  geom_boxplot(aes(y=LONG))+
-  facet_wrap(.~ZONA)+
-  theme_bw()
-boxplot
+colSums(is.na(total))
 ```
 
+Ahoira con Coquina
 
-Corroboro nombres de los df y junto los datos del 2013
 
 ```{r}
-names(sizep01_13) # enero
-names(sizec03_13) # marzo
-names(sizec05_13) # mayo
-names(sizep09_13)# sep
-names(sizep10_13) # oct
-names(sizep12_13) # dic
-names(sizec2013) # comercial hartos meses
-names(sizep2013) # poblacional hartos meses
-names(sizec12_13) # dic comercial
-names(sizep01_13) #enero
+# Leo todos los archivos de Chirla
+archivojunio_c <- "DATA/Coquina 24_07_2024.xlsx"
+archivoagosto_c <- "DATA/Coquina 20_08_2024.xlsx"
+archivo_sept_c <- "DATA/Coquina 20_09_2024.xlsx"  
+archivo_oct_c <- "DATA/Coquina 18_10_2024.xlsx"  
+
+leer_y_combinar_c <- function(archivo) {
+  hojas <- excel_sheets(archivo)
+  hojas_filtradas <- hojas[!hojas == "Datos Lance"]
+  datos_c <- lapply(hojas_filtradas, function(hoja) {
+    datos_hoja <- read_excel(archivo, sheet = hoja)
+    datos_hoja$ZONA <- hoja  # Agrega la columna ZONA con el nombre de la hoja
+    return(datos_hoja)
+  }) %>%
+    bind_rows()  # Combina todas las hojas en un solo data frame
+  return(datos_c)
+}
 ```
 
+
 ```{r}
-size2013 <- bind_rows(sizep01_13,
-                  sizec03_13,
-                  sizec05_13,
-                  sizep09_13,
-                  sizep10_13,
-                  sizep12_13,
-                  sizec2013,
-                  sizep2013,
-                  sizec12_13,
-                  sizep01_13) %>% 
-  mutate(
-    DIA = day(Date),
-    MES = month(Date),
-    ANO = year(Date)
-  )
+# Lee los archivos y combina los datos
+datos_junio_c <- leer_y_combinar_c(archivojunio_c)
+datos_agosto_c <- leer_y_combinar_c(archivoagosto_c)
+datos_sept_c <- leer_y_combinar_c(archivo_sept_c)
+datos_oct_c <- leer_y_combinar_c(archivo_oct_c)
+
+# Combina todos los datos en un solo data frame
+total_c <- bind_rows(datos_junio_c, 
+                             datos_agosto_c, 
+                             datos_sept_c, 
+                             datos_oct_c)
+
 ```
+```{r}
+# Elimina el punto en la columna ZONA
+total_c$ZONA <- gsub("\\.", "", total_c$ZONA)
+# Verifica los cambios
+head(total_c)
+```
+
+
+
+```{r}
+boxplot <- ggplot(total %>%
+                     mutate(ANO = year(FECHA),
+                            MES = month(FECHA),
+                            DIA = day(FECHA))
+                    )+
+  geom_col(aes(y=LONG, x = reorder(ZONA, LONG), 
+           color = ZONA)) +
+  theme_bw()+
+   theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust = 0.5,
+                                     size = 9),
+         legend.position = "none")+
+  facet_wrap(.~MES, ncol=1)+
+  labs(x="")+
+  ggtitle('RECLAM Chirla')
+
+boxplot_c <- ggplot(total_c %>%
+                     mutate(ANO = year(Fecha),
+                            MES = month(Fecha),
+                            DIA = day(Fecha))
+                    )+
+  geom_col(aes(y=Longitud, x = reorder(ZONA, Longitud), 
+           color = ZONA)) +
+  theme_bw()+
+   theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust = 0.5,
+                                     size = 9),
+         legend.position = "none")+
+  facet_wrap(.~MES, ncol=1)+
+  labs(x="")+
+  ggtitle('RECLAM Coquina')
+
+
+ggarrange(boxplot,
+          boxplot_c,
+          ncol=2)
+```
+
 
 ## Relacion Talla Peso
 
