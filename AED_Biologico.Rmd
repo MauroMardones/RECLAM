@@ -53,6 +53,7 @@ library(ggthemes)
 library(hrbrthemes)
 library(kableExtra)
 library(gtsummary)
+library(easystats)
 ```
 Seteo el directorio
 
@@ -148,8 +149,11 @@ total_c <- bind_rows(datos_junio_c,
                              datos_oct_c)
 
 ```
-```{r}
+
 # Elimina el punto en la columna ZONA
+
+
+```{r}
 total_c$ZONA <- gsub("\\.", "", total_c$ZONA)
 # Verifica los cambios
 head(total_c)
@@ -158,13 +162,59 @@ head(total_c)
 
 
 ```{r}
-boxplot <- ggplot(total %>%
+chplot <- ggplot(total %>%
                      mutate(ANO = year(FECHA),
                             MES = month(FECHA),
                             DIA = day(FECHA))
                     )+
   geom_col(aes(y=LONG, x = reorder(ZONA, LONG), 
            color = ZONA)) +
+  theme_few()+
+   theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust = 0.5,
+                                     size = 9),
+         legend.position = "none")+
+  facet_wrap(.~MES, ncol=1)+
+  scale_color_see_d(palette = "ice")+
+  labs(x="")+
+  ggtitle('RECLAM Chirla')
+
+coplot_c <- ggplot(total_c %>%
+                     mutate(ANO = year(Fecha),
+                            MES = month(Fecha),
+                            DIA = day(Fecha))
+                    )+
+  geom_col(aes(y=Longitud, x = reorder(ZONA, Longitud), 
+           color = ZONA)) +
+  theme_few()+
+   theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust = 0.5,
+                                     size = 9),
+         legend.position = "none")+
+  facet_wrap(.~MES, ncol=1)+
+  scale_color_see_d(palette = "ice")+
+  labs(x="")+
+  ggtitle('RECLAM Coquina')
+
+
+ggarrange(chplot,
+          coplot_c,
+          ncol=2)
+```
+
+Ahora un hist simple
+
+```{r}
+chhist <- ggplot(total %>%
+                     mutate(ANO = year(FECHA),
+                            MES = month(FECHA),
+                            DIA = day(FECHA))
+                    )+
+  geom_histogram(aes(x=LONG), bins = 60,
+                 fill=NA,
+                 col=1) +
   theme_bw()+
    theme(axis.text.x = element_text(angle = 90,
                                      hjust = 1,
@@ -175,13 +225,14 @@ boxplot <- ggplot(total %>%
   labs(x="")+
   ggtitle('RECLAM Chirla')
 
-boxplot_c <- ggplot(total_c %>%
+cohist<- ggplot(total_c %>%
                      mutate(ANO = year(Fecha),
                             MES = month(Fecha),
                             DIA = day(Fecha))
                     )+
-  geom_col(aes(y=Longitud, x = reorder(ZONA, Longitud), 
-           color = ZONA)) +
+  geom_histogram(aes(x=Longitud), bins = 60,
+                 fill=NA,
+                 col=2) +
   theme_bw()+
    theme(axis.text.x = element_text(angle = 90,
                                      hjust = 1,
@@ -193,15 +244,16 @@ boxplot_c <- ggplot(total_c %>%
   ggtitle('RECLAM Coquina')
 
 
-ggarrange(boxplot,
-          boxplot_c,
+ggarrange(chhist,
+          cohist,
           ncol=2)
 ```
-
 
 ## Relacion Talla Peso
 
 Análisis recopilados desde este [Repo](https://rpubs.com/jdmaestre/366409) and [this](http://derekogle.com/fishR/examples/oldFishRVignettes/LengthWeight.pdf)
+Estos datos fueron muestreados solo durante el mes de Junio 2024.
+
 
 ```{r}
 tp_coquina <- read_excel(here("DATA",
@@ -217,20 +269,86 @@ tpcqch <- rbind(tp_chirla,
                 tp_coquina)
 ```
 
-
+parametros 
 
 ```{r}
+# Transformación logarítmica de Longitud y Peso
+tpcqch_log <- tpcqch %>%
+  mutate(log_Longitud = log(Longitud),
+         log_Peso = log(Peso))
+
+# Ajustar un modelo lineal para todas las especies (combinadas)
+modelo_completo <- lm(log_Peso ~ log_Longitud * specie, data = tpcqch_log)
+
+# Realizar el ANOVA para evaluar si las pendientes difieren entre especies
+anova_resultados <- anova(modelo_completo)
+
+# Ver los resultados del ANOVA
+print(anova_resultados)
+
+# Ver los coeficientes del modelo
+coef(modelo_completo)
+
+# Extraer los coeficientes
+intercepto_log <- coef(modelo_completo)["(Intercept)"]  # Intercepto en log
+pendiente_log <- coef(modelo_completo)["log(Longitud)"]  # Pendiente en log
+
+# Calcular el intercepto en el espacio original (exponencial del intercepto logarítmico)
+intercepto_absoluto <- exp(intercepto_log)
+
+# Mostrar los resultados
+cat("Intercepto (log):", intercepto_log, "\n")
+cat("Pendiente (log):", pendiente_log, "\n")
+cat("Intercepto (absoluto):", intercepto_absoluto, "\n")
+
+# Crear el gráfico con los datos originales y la línea de regresión ajustada
 TP <- ggplot(tpcqch) +
-  geom_point(aes(Longitud, Peso, 
-                 color = specie)) +
+  geom_point(aes(Longitud, Peso, color = specie)) +
   geom_smooth(aes(Longitud, Peso),
               method = "gam",
-             color = "black",
+              color = "black",
               se = TRUE) +
-  facet_wrap(.~specie,
-             scale="free_y") +
+  facet_wrap(.~specie, scale = "free_y") +
   theme_bw()
+
 TP
+
+# step-2
+plot(parameters(modelo))
+
+# step-3
+
+check <- check_normality(modelo_completo)
+plot(check, 
+     type="qq")
+
+
+results <- summary(correlation(tpcqch_log))
+plot(results, show_data = "points")
+```
+# Mapas 
+
+Preguntar a Alejandro si todos los "Datos Lance" tienen la misma Info. Por q no tiene Oct?
+```{r}
+coord_ch <- read_excel(here("DATA",
+                    "Chirla 09_08_2024.xlsx"),
+                    sheet = "Datos lance") %>% 
+  dplyr::select(1, 2,3) %>% 
+  rename(ZONA = Punto,
+         Latitud =`Latitud inicio`,
+         Longitud = `Longitud inicio`)
+
+coord_co <- read_excel(here("DATA",
+                    "Coquina 20_08_2024.xlsx"),
+                    sheet = "Datos Lance") %>% 
+  dplyr::select(c(2,4,5)) %>% 
+  rename(ZONA = Réplica)
+
+
+coord_bo <- rbind(coord_ch,
+                  coord_co)
+unique(coord_bo$ZONA)
+
 ```
 
 
