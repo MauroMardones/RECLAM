@@ -1,33 +1,4 @@
----
-title: "Analisis Exploratorio de Datos de la componente biológica"
-subtitle: "Proyecto RECLAM"
-author: "Mardones, M; García, A.; Delgado, M."
-date:  "`r format(Sys.time(), '%d %B, %Y')`"
-#bibliography: EDA_donux.bib
-#csl: apa.csl
-link-citations: yes
-linkcolor: blue
-output: 
-  html_document:
-    fig-caption: yes
-    keep_md: true
-    toc: true
-    toc_deep: 3
-    toc_float:
-      collapsed: false
-      smooth_scroll: false
-    theme: cosmo
-    fontsize: 0.9em
-    linestretch: 1.7
-    html-math-method: katex
-    self-contained: true
-    code-tools: true
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
-```{r setup1}
+## ----setup1-----------------------------------------------------------------------------------------------
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
@@ -40,9 +11,9 @@ knitr::opts_chunk$set(echo = TRUE,
 options(bitmapType = "cairo") 
 # (https://github.com/tidyverse/ggplot2/issues/2655)
 # Lo mapas se hacen mas rapido
-```
 
-```{r message=FALSE, warning=FALSE}
+
+## ----message=FALSE, warning=FALSE-------------------------------------------------------------------------
 library(tidyverse)
 library(ggridges)
 library(readxl)
@@ -56,25 +27,14 @@ library(gtsummary)
 library(easystats)
 library(sf)
 library(egg)
-```
-Seteo el directorio
 
-```{r, include=FALSE}
+
+## ----include=FALSE----------------------------------------------------------------------------------------
 ## Set path
-here::here("DATA")
-```
 
-# Contexto de las composiciones de tallas del monitoreo de Coquina y Chirla 
 
-El monitoreo de tallas considera dos compenentes. muestreo espacial, temporal y por arte de pesca (comercial y poblacional)
 
-# Metodología de manipulación de data
-
-Leer y juntar Data Base  provenientos de todos los muestreos. Cabe señalar que las bases de datos previas al 2020, tiene (o pueden contener) otras columnas como densidad, rendimiento y tallas. 
-
-Funcion para juntar y combinar data
-
-```{r funcion}
+## ----funcion----------------------------------------------------------------------------------------------
 # Función para leer y combinar hojas de un archivo
 leer_y_combinar <- function(archivo) {
   hojas <- excel_sheets(archivo)
@@ -87,13 +47,9 @@ leer_y_combinar <- function(archivo) {
   
   return(datos)
 }
-```
 
-## Datos Composiciones de Tallas
 
-### Chirla
-
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 # Leo todos los archivos de Chirla
 # Lista nombrada con las rutas de los archivos
 archivos <- list(
@@ -113,16 +69,13 @@ datos_lista <- lapply(archivos, leer_y_combinar)
 datos_totales <- bind_rows(datos_lista)
 # Verificar resultado
 glimpse(datos_totales)
-```
-Miro `NA`
 
-```{r}
+
+## ---------------------------------------------------------------------------------------------------------
 colSums(is.na(datos_totales))
-```
 
-Ahora con Coquina
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 archivosco <- list(
   julio  = "DATA/Coquina 24_07_2024.xlsx",
   agosto = "DATA/Coquina 20_08_2024.xlsx",
@@ -141,16 +94,15 @@ datos_listaco <- lapply(archivosco,
 datos_totalesco <- bind_rows(datos_listaco)
 # Verificar resultado
 glimpse(datos_totalesco)
-```
 
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 # Verifica los cambios
 tail(datos_totalesco)
 dim(datos_totalesco)
-```
 
-```{r}
+
+## ---------------------------------------------------------------------------------------------------------
 chplot <- ggplot(datos_totales %>%
                    mutate(ANO = year(FECHA),
                           MES = month(FECHA),
@@ -190,11 +142,9 @@ coplot_c <- ggplot(datos_totalesco %>%
 ggarrange(chplot,
           coplot_c,
           ncol=2)
-```
 
-Ahora un hist simple
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 chhist <- ggplot(datos_totales %>%
                      mutate(ANO = year(FECHA),
                             MES = month(FECHA),
@@ -235,15 +185,9 @@ cohist<- ggplot(datos_totalesco %>%
 ggarrange(chhist,
           cohist,
           ncol=2)
-```
-
-## Relacion Talla Peso
-
-Análisis recopilados desde este [Repo](https://rpubs.com/jdmaestre/366409) and [this](http://derekogle.com/fishR/examples/oldFishRVignettes/LengthWeight.pdf)
-Estos datos fueron muestreados solo durante el mes de Junio 2024.
 
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 tp_coquina <- read_excel(here("DATA",
                               "Muestreo 200 ejemplares.xlsx"), 
     sheet = "coquina") %>% 
@@ -267,11 +211,9 @@ TP <- ggplot(tpcqch) +
   theme_few()
 
 TP
-```
 
-parámetros 
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 # Transformación logarítmica de Longitud y Peso
 tpcqch_log <- tp_coquina %>%
   mutate(log_Longitud = log(Longitud),
@@ -325,13 +267,9 @@ plot(check,
 
 results <- summary(correlation(tpcqch_log))
 plot(results, show_data = "points")
-```
-# Mapas 
-
-Preguntar a Alejandro si todos los "Datos Lance" tienen la misma Info. Por q no tiene Oct?
 
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 coord_ch <- read_excel(here("DATA",
                     "Chirla 09_08_2024.xlsx"),
                     sheet = "Datos lance") %>% 
@@ -348,29 +286,23 @@ coord_co <- read_excel(here("DATA",
 
 coord_bo <- rbind(coord_ch,
                   coord_co)
-```
-Unir base con `merge()`
 
-(revisar!)
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 total_c_geo <- merge(total_c, 
                      coord_bo,
                      by="ZONA")
 head(total_c_geo)
-```
 
-Leo un .shp
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 costandalucia <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/costa_proyectada.shp") %>% 
   st_transform("+init=epsg:4326")
 grilla <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/cuadrกculas_definitivo.shp") %>% 
   st_transform("+init=epsg:4326")
-```
 
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------
 # Crear un data frame con las coordenadas y un atributo para el tamaño
 puntos <- data.frame(
   lon = c(-7.2, -7.0, -6.8, -6.5),
@@ -398,7 +330,4 @@ ggplot() +
   xlim(-7.6, -6.3) +
   ylim(36.65, 37.3)
 
-```
 
-
-# Referencias
