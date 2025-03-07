@@ -56,6 +56,7 @@ library(gtsummary)
 library(easystats)
 library(sf)
 library(egg)
+library(ggpmisc)
 ```
 Seteo el directorio
 
@@ -244,11 +245,11 @@ Estos datos fueron muestreados solo durante el mes de Junio 2024.
 
 
 ```{r}
-tp_coquina <- read_excel(here("DATA",
+tp_coquina <- read_excel(here("DATA_Old",
                               "Muestreo 200 ejemplares.xlsx"), 
     sheet = "coquina") %>% 
   mutate(specie = "CQ")
-tp_chirla <- read_excel(here("DATA",
+tp_chirla <- read_excel(here("DATA_Old",
                               "Muestreo 200 ejemplares.xlsx"), 
     sheet = "chirla") %>%
   mutate(specie = "CH")
@@ -267,6 +268,49 @@ TP <- ggplot(tpcqch) +
   theme_few()
 
 TP
+```
+```{r}
+# Leer y preparar los datos
+tp_coquina <- read_excel(here("DATA_Old", 
+                              "Muestreo 200 ejemplares.xlsx"), 
+                         sheet = "coquina") %>% 
+  mutate(specie = "Coquina")
+
+tp_chirla <- read_excel(here("DATA_Old", 
+                             "Muestreo 200 ejemplares.xlsx"), 
+                        sheet = "chirla") %>%
+  mutate(specie = "Chirla")
+
+# Unir datasets
+tpcqch <- bind_rows(tp_chirla, tp_coquina) %>%
+  mutate(log_Longitud = log(Longitud),
+         log_Peso = log(Peso))
+
+# Crear el gráfico con lm() y mostrar ecuación + R²
+TP <- ggplot(tpcqch, aes(x = log_Longitud, 
+                         y = log_Peso,
+                         color = specie)) +
+  geom_point() +  # Puntos de datos transformados
+  geom_smooth(method = "lm", se = TRUE, 
+              color = "black") +  # Línea de regresión lineal
+  facet_wrap(.~specie, scale = "free_y") +
+  scale_color_viridis_d(option="H")+
+  stat_poly_eq(aes(label = after_stat(eq.label)), 
+               formula = y ~ x, 
+               parse = TRUE, 
+               label.x.npc = "right", 
+               label.y.npc = 3) +  # Mostrar ecuación
+  stat_poly_eq(aes(label = after_stat(rr.label)), 
+               formula = y ~ x, 
+               parse = TRUE, 
+               label.x.npc = "right", 
+               label.y.npc = 2) +  # Mostrar R²
+  theme_few()  # Estilo del gráfico
+
+# Mostrar gráfico
+TP
+
+
 ```
 
 parámetros 
