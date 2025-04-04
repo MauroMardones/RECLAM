@@ -1,35 +1,34 @@
 ---
-title: "Analisis Exploratorio de Datos de la componente biológica"
+title: "Analisis Exploratorio de datos de la componente biológica"
 subtitle: "Proyecto RECLAM"
 author: "Mardones, M; García, A.; Delgado, M."
 date:  "`r format(Sys.time(), '%d %B, %Y')`"
 #bibliography: EDA_donux.bib
 #csl: apa.csl
+output:
+  bookdown::pdf_document2:
+    number_sections: false
+fig_caption: yes
+#bibliography: SA_krill.bib
+always_allow_html: true
+#csl: apa.csl
 link-citations: yes
+toc: false
 linkcolor: blue
-output: 
-  html_document:
-    fig-caption: yes
-    keep_md: true
-    toc: true
-    toc_deep: 3
-    toc_float:
-      collapsed: false
-      smooth_scroll: false
-    theme: cosmo
-    fontsize: 0.9em
-    linestretch: 1.7
-    html-math-method: katex
-    self-contained: true
-    code-tools: true
-editor_options: 
-  markdown: 
-    wrap: 72
+linestretch: 1.3
+header-includes:
+- \fontsize{12}{16}
+- \selectfont
+- \usepackage{lscape}
 ---
+\newpage
+\tableofcontents
+\newpage
+
 
 ```{r setup1}
 rm(list = ls())
-knitr::opts_chunk$set(echo = TRUE,
+knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
                       warning = FALSE,
                       fig.align = 'center',
@@ -58,22 +57,83 @@ library(sf)
 library(egg)
 library(ggpmisc)
 ```
-Seteo el directorio
+
 
 ```{r, include=FALSE}
 ## Set path
 here::here("DATA")
 ```
 
-# Contexto de las composiciones de tallas del monitoreo de Coquina y Chirla 
+## Tarea 1.1: Muestreo de campo para la estructura poblacional y estimaciones de densidad
 
-El monitoreo de tallas considera dos compenentes. muestreo espacial, temporal y por arte de pesca (comercial y poblacional)
+Los muestreos se realizarán mensualmente utilizando la misma metodología en ambos sitios desde julio de 2023 hasta junio de 2024. El costo anual de muestreo en una sola área, como el Golfo de Cádiz, para ambas especies es de aproximadamente 50.000,00 €. Por lo tanto, realizaremos este análisis en un solo sitio. Sin embargo, nuestros colegas de la Universitat Politècnica de València están realizando los mismos muestreos en sus regiones, tal como se indicó anteriormente. Los muestreos siempre se realizarán en la misma área geográfica a lo largo del Golfo de Cádiz.
 
-# Metodología de manipulación de data
+### Muestreo de *D. trunculus*
 
-Leer y juntar Data Base  provenientos de todos los muestreos. Cabe señalar que las bases de datos previas al 2020, tiene (o pueden contener) otras columnas como densidad, rendimiento y tallas. 
+En el caso de *D. trunculus*, el muestreo se realizará utilizando dos dragas manuales como las que utilizan los recolectores locales de bivalvos (experimentales y comerciales). Estas dragas manuales tienen una estructura de hierro con una apertura de 44,5 cm de ancho que excava profundamente en el sedimento (hasta los 15 cm superiores), utilizando un tamaño de malla experimental (3 × 3 mm) para permitir la recolección de los individuos más pequeños y juveniles, y un tamaño de malla comercial (7 × 7 mm).
 
-Funcion para juntar y combinar data
+Se establecerán tres transectos equidistantes paralelos a la costa (distancia entre transectos: 200 m) con estaciones a 0,2, 0,5 y 0,7 m de profundidad. En cada estación, los pescadores realizarán un arrastre de 25 m de largo paralelo a la costa. Se realizarán tres réplicas en cada estación cada mes. Cada arrastre será georreferenciado mediante un GPS para calcular el área muestreada (m²). La captura (organismos) retenida en la draga se verterá en un recipiente y se transportará a los laboratorios. Todos los organismos serán identificados, contados y pesados.
+
+Dentro del Golfo de Cádiz, estableceremos tres estaciones entre los ríos Guadalquivir y Guadiana. Dos dentro de las costas y aguas protegidas del Parque Nacional de Doñana y una fuera de él. En el Golfo de Valencia, se han establecido cinco estaciones de muestreo en Oliva-Denia, Gandia, Tabernes, Cullera y Valencia.
+
+### Muestreo de *C. gallina*
+
+En cuanto al caso de *C. gallina*, el muestreo se realizará utilizando una draga hidráulica comercial en el Golfo de Cádiz. Se definirán tres transectos equidistantes paralelos a la costa (distancia entre estaciones: ≈600 m) con estaciones a 5 y 8 m de profundidad durante la marea baja (total de estaciones: 6). Se realizarán tres réplicas en cada estación cada mes. En cada estación, la draga se desplegará y se arrastrará paralelamente a la costa durante 10 minutos. Cada transecto también será georreferenciado mediante un GPS para calcular el área muestreada (m²). 
+
+En el mar Mediterráneo, los colegas de la Universitat Politècnica de València ya están realizando muestreos similares pero ajustando la profundidad a la geomorfología del Golfo de Valencia, que es muy diferente a la del Golfo de Cádiz.
+
+En el laboratorio, se registrará el número de individuos retenidos de las especies objetivo para estimar la densidad poblacional (ind/m²) y la biomasa (g/m²) a partir de las muestras experimentales, y el rendimiento (kg por tiempo de pesca) a partir de las muestras comerciales. La longitud de la concha (SL) se medirá con un calibrador digital Vernier hasta el 0,1 mm para producir distribuciones de frecuencias de longitud de todas las muestras.
+
+## Tarea 1.2: Estructura poblacional
+
+Las distribuciones de frecuencias de longitud de la concha se analizarán para cada muestra y la captura total, y por tipo de arte de pesca. Se llevará a cabo el análisis de cohortes utilizando el método de Bhattacharya. También se investigará el porcentaje de adultos, juveniles e individuos en el tamaño óptimo (longitud de la concha en la que una cohorte alcanza la mayor biomasa posible proporcionando el mejor rendimiento de captura).
+
+
+# Introducción
+
+El proyecto RECLAM tiene como objetivo general evaluar el estado poblacional de especies bentónicas de interés comercial, específicamente la coquina (*Donax trunculus*) y la chirla (*Chamelea gallina*), en áreas relevantes del Golfo de Cádiz. Estas especies representan un recurso importante para la pesca artesanal y semiindustrial, siendo esenciales para la sostenibilidad económica de comunidades costeras.
+
+La dinámica poblacional de estos bivalvos puede verse afectada por múltiples factores, incluyendo la presión pesquera, la variabilidad ambiental y la estacionalidad reproductiva. En este contexto, la generación de información estandarizada a través de muestreos sistemáticos es clave para comprender la estructura de las poblaciones y orientar estrategias de gestión basadas en evidencia.
+
+# Objetivos
+
+- Realizar muestreos mensuales en los principales caladeros de coquina y chirla en el marco del proyecto RECLAM.
+- Registrar la información biológica y pesquera de manera estandarizada.
+- Generar una base de datos estructurada y reutilizable para análisis poblacionales.
+- Identificar patrones espacio-temporales y estructura de tallas de ambas especies.
+- Evaluar la composición poblacional y el reclutamiento estacional.
+
+# Métodos
+
+Los muestreos se realizan con una frecuencia mensual, cubriendo las principales áreas de pesca previamente identificadas.
+
+## Diseño del muestreo
+
+- **Frecuencia:** mensual  
+- **Método de arrastre:** rastro de fondo tipo estándar 
+- **Coordenadas geográficas:** registradas con GPS
+- **Zonas de muestreo:** Parque Natural de Doñana, Matalascañas, Punta Umbría, Isla Canela
+
+## Datos recogidos por lance
+
+- Fecha y hora
+- Posición inicial y final (latitud y longitud)
+- Especie objetivo
+- Conteo de individuos
+- Medidas de talla (longitud en mm)
+- Observaciones sobre hábitat o condiciones ambientales
+
+## Estandarización de datos
+
+Todos los datos son registrados en formularios digitales y posteriormente almacenados en una base de datos relacional en formato `.csv` y `.rds`, diseñada para facilitar análisis poblacionales, cálculo de estructura de tallas y estimación de indicadores.
+
+# Resultados preliminares
+
+A continuación se presentan algunos resultados preliminares obtenidos durante los primeros meses de muestreo:
+
+## Composición de tallas
+
+
 
 ```{r funcion}
 # Función para leer y combinar hojas de un archivo
@@ -90,7 +150,6 @@ leer_y_combinar <- function(archivo) {
 }
 ```
 
-## Datos Composiciones de Tallas
 
 ### Chirla
 
@@ -117,11 +176,11 @@ glimpse(datos_totales)
 ```
 Miro `NA`
 
-```{r}
+```{r eval=FALSE}
 colSums(is.na(datos_totales))
 ```
 
-Ahora con Coquina
+### Coquina
 
 ```{r}
 archivosco <- list(
@@ -151,13 +210,12 @@ tail(datos_totalesco)
 dim(datos_totalesco)
 ```
 
-```{r}
-chplot <- ggplot(datos_totales %>%
+```{r fig.height=8, fig.width=6}
+chplot <- ggplot(datos_totales %>% 
                    mutate(ANO = year(FECHA),
                           MES = month(FECHA),
                           DIA = day(FECHA))) +
-  geom_bar(aes(x = reorder(hoja, LONG), 
-               fill = hoja), stat = "count") +
+  geom_bar(aes(x = reorder(hoja, LONG)), stat = "count") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90,
                                    hjust = 1,
@@ -165,32 +223,34 @@ chplot <- ggplot(datos_totales %>%
                                    size = 9),
         legend.position = "none") +
   facet_wrap(. ~ MES, ncol = 1) +
-  #scale_fill_see_d(palette = "contrast") +
   labs(x = "") +
-  ggtitle('registros RECLAM Chirla')
+  ggtitle('Registros RECLAM Chirla') +
+  geom_text(stat = 'count', aes(x = reorder(hoja, LONG), label = ..count..),
+            position = position_stack(vjust = 0.5), size = 2)
 
-
-coplot_c <- ggplot(datos_totalesco %>%
+# Segundo gráfico (coplot_c)
+coplot_c <- ggplot(datos_totalesco %>% 
                    mutate(ANO = year(Fecha),
                           MES = month(Fecha),
                           DIA = day(Fecha))) +
-  geom_bar(aes(x = reorder(hoja, Longitud), 
-               fill=hoja), stat = "count") +
-  theme_bw()+
-   theme(axis.text.x = element_text(angle = 90,
-                                     hjust = 1,
-                                     vjust = 0.5,
-                                     size = 9),
-         legend.position = "none")+
-  facet_wrap(.~MES, ncol=1)+
-  #scale_fill_see_d(palette = "contrast")+
-  labs(x="")+
-  ggtitle('registros RECLAM Coquina')
+  geom_bar(aes(x = reorder(hoja, Longitud)), stat = "count") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90,
+                                   hjust = 1,
+                                   vjust = 0.5,
+                                   size = 9),
+        legend.position = "none") +
+  facet_wrap(. ~ MES, ncol = 1) +
+  labs(x = "") +
+  ggtitle('Registros RECLAM Coquina') +
+  geom_text(stat = 'count', aes(x = reorder(hoja, Longitud), label = ..count..),
+            position = position_stack(vjust = 0.5), size = 2)
 
-
+# Organizar los gráficos
 ggarrange(chplot,
           coplot_c,
-          ncol=2)
+          ncol = 2)
+
 ```
 
 Ahora un hist simple
@@ -377,31 +437,45 @@ Preguntar a Alejandro si todos los "Datos Lance" tienen la misma Info. Por q no 
 
 ```{r}
 coord_ch <- read_excel(here("DATA",
-                    "Chirla 09_08_2024.xlsx"),
-                    sheet = "Datos lance") %>% 
+                    "Bitacora_chirla_RECLAM.xlsx")) %>% 
   dplyr::select(1, 2,3) %>% 
   rename(ZONA = Punto,
          Latitud =`Latitud inicio`,
          Longitud = `Longitud inicio`)
 
 coord_co <- read_excel(here("DATA",
-                    "Coquina 20_08_2024.xlsx"),
-                    sheet = "Datos Lance") %>% 
+                    "Bitacora_coquina_RECLAM.xlsx")) %>% 
   dplyr::select(c(2,4,5)) %>% 
   rename(ZONA = Réplica)
 
 coord_bo <- rbind(coord_ch,
-                  coord_co)
+                  coord_co) %>% 
+  rename(hoja = ZONA)
 ```
 Unir base con `merge()`
 
 (revisar!)
 
 ```{r}
-total_c_geo <- merge(total_c, 
+# Renombrar columnas de datos_totalesco para que coincidan con datos_totales
+total_c <- rbind(datos_totales,
+                 datos_totalesco) %>% 
+  mutate(ANO = year(FECHA),
+         MES = month(FECHA),
+         DIA = day(FECHA))
+
+total_c_geo <- left_join(total_c, 
                      coord_bo,
-                     by="ZONA")
-head(total_c_geo)
+                     by="hoja") %>% 
+  drop_na(Longitud,
+          Latitud) %>% 
+  mutate(Longitud = - Longitud)
+total_c_geo
+
+# Convertir en objeto sf
+total_c_geo1 <- st_as_sf(total_c_geo, 
+                        coords = c("Longitud", "Latitud"),
+                        crs = "+init=epsg:4326")  # WGS84
 ```
 
 Leo un .shp
@@ -415,34 +489,23 @@ grilla <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/cuadrกculas_definitivo.shp") %>%
 
 
 ```{r}
-# Crear un data frame con las coordenadas y un atributo para el tamaño
-puntos <- data.frame(
-  lon = c(-7.2, -7.0, -6.8, -6.5),
-  lat = c(36.8, 36.9, 37.1, 37.2),
-  Longitud = c(10, 25, 50, 100)  # atributo para definir el tamaño
-)
-
 ggplot() +
-  geom_point(data = puntos, 
-             aes(x = lon,
-                 y = lat, 
-                 size = Longitud), 
-             color = "blue", 
-             alpha = 0.7) +
+  geom_sf(data = total_c_geo1) +  # Ajusta el tamaño de los puntos
   geom_sf(data = costandalucia, 
           fill = "#fee8c8") + 
-  geom_sf(data= grilla,
-          fill=NA, col="red")+
-  theme_few() +
-  xlab(expression(paste(Longitude^o, ~'O'))) +
-  ylab(expression(paste(Latitude^o, ~'S'))) +
-  guides(size = guide_legend(title = "Talla Promedio (mm)")) +  # Título de la leyenda
-  scale_size_continuous(range = c(3, 10)) +  # Ajuste del tamaño de los puntos
-  theme(legend.position = "right") +  # Posición de la leyenda
-  xlim(-7.6, -6.3) +
-  ylim(36.65, 37.3)
+  geom_sf(data = grilla, 
+          fill = NA, col = "red") + 
+  theme_few() + 
+  xlab(expression(paste(Longitude^o, ~'O'))) + 
+  ylab(expression(paste(Latitude^o, ~'S'))) + 
+  guides(size = guide_legend(title = "Talla Promedio (mm)")) +  
+  scale_size_continuous(range = c(3, 10)) +  
+  theme(legend.position = "right")   
+  #coord_sf(xlim = c(-7.6, -6.3), ylim = c(36.65, 37.3))  # Ajuste con coord_sf
+
 
 ```
+
 
 
 # Referencias
