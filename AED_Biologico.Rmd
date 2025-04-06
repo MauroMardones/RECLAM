@@ -1,12 +1,12 @@
 ---
-title: "Analisis Exploratorio de datos de la componente biológica"
+title: "Analisis Exploratorio de datos de la componente biologica"
 subtitle: "Proyecto RECLAM"
 author: "Mardones, M; García, A.; Delgado, M."
 date:  "`r format(Sys.time(), '%d %B, %Y')`"
 #bibliography: EDA_donux.bib
 #csl: apa.csl
 output:
-  bookdown::pdf_document2:
+  bookdown::word_document2:
     number_sections: false
 fig_caption: yes
 #bibliography: SA_krill.bib
@@ -26,7 +26,7 @@ header-includes:
 \newpage
 
 
-```{r setup1}
+```{r setup1, echo=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
@@ -56,6 +56,7 @@ library(easystats)
 library(sf)
 library(egg)
 library(ggpmisc)
+library(flextable)
 ```
 
 
@@ -64,38 +65,11 @@ library(ggpmisc)
 here::here("DATA")
 ```
 
-## Tarea 1.1: Muestreo de campo para la estructura poblacional y estimaciones de densidad
+# CONTEXTO
 
-Los muestreos se realizarán mensualmente utilizando la misma metodología en ambos sitios desde julio de 2023 hasta junio de 2024. El costo anual de muestreo en una sola área, como el Golfo de Cádiz, para ambas especies es de aproximadamente 50.000,00 €. Por lo tanto, realizaremos este análisis en un solo sitio. Sin embargo, nuestros colegas de la Universitat Politècnica de València están realizando los mismos muestreos en sus regiones, tal como se indicó anteriormente. Los muestreos siempre se realizarán en la misma área geográfica a lo largo del Golfo de Cádiz.
+El proyecto **RECLAM** tiene como objetivo general evaluar el estado poblacional de especies bentónicas de interés comercial, específicamente la coquina (*Donax trunculus*) y la chirla (*Chamelea gallina*), en áreas relevantes del Golfo de Cádiz. Estas especies representan un recurso importante para la pesca artesanal y semiindustrial, siendo esenciales para la sostenibilidad económica de comunidades costeras.
 
-### Muestreo de *D. trunculus*
-
-En el caso de *D. trunculus*, el muestreo se realizará utilizando dos dragas manuales como las que utilizan los recolectores locales de bivalvos (experimentales y comerciales). Estas dragas manuales tienen una estructura de hierro con una apertura de 44,5 cm de ancho que excava profundamente en el sedimento (hasta los 15 cm superiores), utilizando un tamaño de malla experimental (3 × 3 mm) para permitir la recolección de los individuos más pequeños y juveniles, y un tamaño de malla comercial (7 × 7 mm).
-
-Se establecerán tres transectos equidistantes paralelos a la costa (distancia entre transectos: 200 m) con estaciones a 0,2, 0,5 y 0,7 m de profundidad. En cada estación, los pescadores realizarán un arrastre de 25 m de largo paralelo a la costa. Se realizarán tres réplicas en cada estación cada mes. Cada arrastre será georreferenciado mediante un GPS para calcular el área muestreada (m²). La captura (organismos) retenida en la draga se verterá en un recipiente y se transportará a los laboratorios. Todos los organismos serán identificados, contados y pesados.
-
-Dentro del Golfo de Cádiz, estableceremos tres estaciones entre los ríos Guadalquivir y Guadiana. Dos dentro de las costas y aguas protegidas del Parque Nacional de Doñana y una fuera de él. En el Golfo de Valencia, se han establecido cinco estaciones de muestreo en Oliva-Denia, Gandia, Tabernes, Cullera y Valencia.
-
-### Muestreo de *C. gallina*
-
-En cuanto al caso de *C. gallina*, el muestreo se realizará utilizando una draga hidráulica comercial en el Golfo de Cádiz. Se definirán tres transectos equidistantes paralelos a la costa (distancia entre estaciones: ≈600 m) con estaciones a 5 y 8 m de profundidad durante la marea baja (total de estaciones: 6). Se realizarán tres réplicas en cada estación cada mes. En cada estación, la draga se desplegará y se arrastrará paralelamente a la costa durante 10 minutos. Cada transecto también será georreferenciado mediante un GPS para calcular el área muestreada (m²). 
-
-En el mar Mediterráneo, los colegas de la Universitat Politècnica de València ya están realizando muestreos similares pero ajustando la profundidad a la geomorfología del Golfo de Valencia, que es muy diferente a la del Golfo de Cádiz.
-
-En el laboratorio, se registrará el número de individuos retenidos de las especies objetivo para estimar la densidad poblacional (ind/m²) y la biomasa (g/m²) a partir de las muestras experimentales, y el rendimiento (kg por tiempo de pesca) a partir de las muestras comerciales. La longitud de la concha (SL) se medirá con un calibrador digital Vernier hasta el 0,1 mm para producir distribuciones de frecuencias de longitud de todas las muestras.
-
-## Tarea 1.2: Estructura poblacional
-
-Las distribuciones de frecuencias de longitud de la concha se analizarán para cada muestra y la captura total, y por tipo de arte de pesca. Se llevará a cabo el análisis de cohortes utilizando el método de Bhattacharya. También se investigará el porcentaje de adultos, juveniles e individuos en el tamaño óptimo (longitud de la concha en la que una cohorte alcanza la mayor biomasa posible proporcionando el mejor rendimiento de captura).
-
-
-# Introducción
-
-El proyecto RECLAM tiene como objetivo general evaluar el estado poblacional de especies bentónicas de interés comercial, específicamente la coquina (*Donax trunculus*) y la chirla (*Chamelea gallina*), en áreas relevantes del Golfo de Cádiz. Estas especies representan un recurso importante para la pesca artesanal y semiindustrial, siendo esenciales para la sostenibilidad económica de comunidades costeras.
-
-La dinámica poblacional de estos bivalvos puede verse afectada por múltiples factores, incluyendo la presión pesquera, la variabilidad ambiental y la estacionalidad reproductiva. En este contexto, la generación de información estandarizada a través de muestreos sistemáticos es clave para comprender la estructura de las poblaciones y orientar estrategias de gestión basadas en evidencia.
-
-# Objetivos
+La dinámica poblacional de estos bivalvos puede verse afectada por múltiples factores, incluyendo la presión pesquera, la variabilidad ambiental y la estacionalidad reproductiva. En este contexto, la generación de información estandarizada a través de muestreos sistemáticos es clave para comprender la estructura de las poblaciones y orientar estrategias de gestión basadas en evidencia. Los principales objetivos son;
 
 - Realizar muestreos mensuales en los principales caladeros de coquina y chirla en el marco del proyecto RECLAM.
 - Registrar la información biológica y pesquera de manera estandarizada.
@@ -103,36 +77,40 @@ La dinámica poblacional de estos bivalvos puede verse afectada por múltiples f
 - Identificar patrones espacio-temporales y estructura de tallas de ambas especies.
 - Evaluar la composición poblacional y el reclutamiento estacional.
 
-# Métodos
-
 Los muestreos se realizan con una frecuencia mensual, cubriendo las principales áreas de pesca previamente identificadas.
 
-## Diseño del muestreo
 
-- **Frecuencia:** mensual  
-- **Método de arrastre:** rastro de fondo tipo estándar 
-- **Coordenadas geográficas:** registradas con GPS
-- **Zonas de muestreo:** Parque Natural de Doñana, Matalascañas, Punta Umbría, Isla Canela
+# Muestreo de *D. trunculus*
 
-## Datos recogidos por lance
+En el caso de *D. trunculus*, el muestreo se realizará utilizando dos dragas manuales, similares a las que utilizan los recolectores locales de bivalvos (experimentales y comerciales). Estas dragas manuales tienen una estructura de hierro con una apertura de 44,5 cm de ancho que excava profundamente en el sedimento (hasta los 15 cm superiores), utilizando un tamaño de malla experimental (3 x 3 mm) para permitir la recolección de los individuos más pequeños y juveniles, y un tamaño de malla comercial (7 x 7 mm).
 
-- Fecha y hora
-- Posición inicial y final (latitud y longitud)
-- Especie objetivo
-- Conteo de individuos
-- Medidas de talla (longitud en mm)
-- Observaciones sobre hábitat o condiciones ambientales
+Se establecerán tres transectos equidistantes paralelos a la costa (distancia entre transectos: 200 m) con estaciones a 0,2, 0,5 y 0,7 m de profundidad. En cada estación, los pescadores realizarán un arrastre de 25 m de largo paralelo a la costa. Se realizarán tres réplicas en cada estación cada mes. Cada arrastre será georreferenciado mediante un GPS para calcular el área muestreada ($\text{m}^2$).
 
-## Estandarización de datos
+La captura (organismos) retenida en la draga se verterá en un recipiente y se transportará a los laboratorios. Todos los organismos serán identificados, contados y pesados.
 
-Todos los datos son registrados en formularios digitales y posteriormente almacenados en una base de datos relacional en formato `.csv` y `.rds`, diseñada para facilitar análisis poblacionales, cálculo de estructura de tallas y estimación de indicadores.
+Dentro del Golfo de Cádiz, estableceremos tres estaciones entre los ríos Guadalquivir y Guadiana. Dos dentro de las costas y aguas protegidas del Parque Nacional de Doñana y una fuera de él. En el Golfo de Valencia, se han establecido cinco estaciones de muestreo en Oliva-Denia, Gandia, Tabernes, Cullera y Valencia.
 
-# Resultados preliminares
+# Muestreo de *C. gallina*
 
-A continuación se presentan algunos resultados preliminares obtenidos durante los primeros meses de muestreo:
+En cuanto al caso de *C. gallina*, el muestreo se realizará utilizando una draga hidráulica comercial en el Golfo de Cádiz. Se definirán tres transectos equidistantes paralelos a la costa (con estaciones a 5 y 8 m de profundidad durante la marea baja, totalizando 6 estaciones). Se realizarán tres réplicas en cada estación cada mes. En cada estación, la draga se desplegará y se arrastrará paralelamente a la costa durante 10 minutos. Cada transecto también será georreferenciado mediante un GPS para calcular el área muestreada ($\text{m}^2$).
 
-## Composición de tallas
+En el mar Mediterráneo, los muestreadores de la Universitat Politècnica de Valéncia ya están realizando muestreos similares, ajustando la profundidad a la geomorfología del Golfo de Valencia, que es muy diferente a la del Golfo de Cádiz.
 
+En el laboratorio, se registrará el número de individuos retenidos de las especies objetivo para estimar la densidad poblacional (ind/$\text{m}^2$) y la biomasa (g/$\text{m}^2$) a partir de las muestras experimentales, y el rendimiento (kg por tiempo de pesca) a partir de las muestras comerciales. La longitud de la concha (SL) se medirá con un calibrador digital Vernier hasta el 0,1 mm para producir distribuciones de frecuencias de longitud de todas las muestras.
+
+Se realizará un análisis exploratorio de las distribuciones de frecuencia de longitud de la concha mediante histogramas y estadística descriptiva por muestra y tipo de arte de pesca. Se estimarán parámetros poblacionales mediante modelos lineales y se evaluarán patrones espacio-temporales de variables clave, tales como la longitud media, abundancia relativa y proporción de adultos y juveniles, integrando herramientas gráficas y analíticas para caracterizar la dinámica poblacional de la especie.
+
+
+### Estandarización de datos
+
+Todos los datos son registrados en formularios digitales y posteriormente almacenados en una base de datos relacional en formato `.csv` y `.rds`, diseñada para facilitar análisis poblacionales, cálculo de estructura de tallas y estimación de indicadores. La idea es que el muestreo de Valencia tenga el mismo formato para luego unificar las bases
+
+# RESULTADOS PRELIMINARES
+
+A continuación se presentan algunos resultados preliminares obtenidos durante los primeros meses de muestreo.
+
+
+### Chirla
 
 
 ```{r funcion}
@@ -151,7 +129,7 @@ leer_y_combinar <- function(archivo) {
 ```
 
 
-### Chirla
+
 
 ```{r}
 # Leo todos los archivos de Chirla
@@ -171,10 +149,8 @@ archivos <- list(
 datos_lista <- lapply(archivos, leer_y_combinar)
 # Unir todos los datos en un solo data frame, agregando la columna "mes"
 datos_totales <- bind_rows(datos_lista)
-# Verificar resultado
-glimpse(datos_totales)
 ```
-Miro `NA`
+Datos faltantes o `NA`
 
 ```{r eval=FALSE}
 colSums(is.na(datos_totales))
@@ -199,30 +175,25 @@ datos_listaco <- lapply(archivosco,
                         leer_y_combinar)
 # Unir todos los datos en un solo data frame, agregando la columna "mes"
 datos_totalesco <- bind_rows(datos_listaco)
-# Verificar resultado
-glimpse(datos_totalesco)
+
 ```
+Regustros totalees por especie, mes, punto y replica.
 
-
-```{r}
-# Verifica los cambios
-tail(datos_totalesco)
-dim(datos_totalesco)
-```
-
-```{r fig.height=8, fig.width=6}
+```{r fig.height=10, fig.width=6}
 chplot <- ggplot(datos_totales %>% 
                    mutate(ANO = year(FECHA),
                           MES = month(FECHA),
                           DIA = day(FECHA))) +
-  geom_bar(aes(x = reorder(hoja, LONG)), stat = "count") +
+  geom_bar(aes(x = reorder(hoja, LONG)), stat = "count", 
+           fill="white",
+           col="black") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90,
                                    hjust = 1,
                                    vjust = 0.5,
                                    size = 9),
         legend.position = "none") +
-  facet_wrap(. ~ MES, ncol = 1) +
+  facet_wrap(ANO ~ MES, ncol = 1) +
   labs(x = "") +
   ggtitle('Registros RECLAM Chirla') +
   geom_text(stat = 'count', aes(x = reorder(hoja, LONG), label = ..count..),
@@ -233,14 +204,16 @@ coplot_c <- ggplot(datos_totalesco %>%
                    mutate(ANO = year(Fecha),
                           MES = month(Fecha),
                           DIA = day(Fecha))) +
-  geom_bar(aes(x = reorder(hoja, Longitud)), stat = "count") +
+  geom_bar(aes(x = reorder(hoja, Longitud)), stat = "count", 
+           fill="white",
+           col="black") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90,
                                    hjust = 1,
                                    vjust = 0.5,
                                    size = 9),
         legend.position = "none") +
-  facet_wrap(. ~ MES, ncol = 1) +
+  facet_wrap(ANO ~ MES, ncol = 1) +
   labs(x = "") +
   ggtitle('Registros RECLAM Coquina') +
   geom_text(stat = 'count', aes(x = reorder(hoja, Longitud), label = ..count..),
@@ -253,9 +226,9 @@ ggarrange(chplot,
 
 ```
 
-Ahora un hist simple
+Ahora vizualizamos las frecuencias de tallas de ambas especies a traves de los meses de muestreo
 
-```{r}
+```{r fig.height=5, fig.width=8}
 chhist <- ggplot(datos_totales %>%
                      mutate(ANO = year(FECHA),
                             MES = month(FECHA),
@@ -270,7 +243,7 @@ chhist <- ggplot(datos_totales %>%
                                      vjust = 0.5,
                                      size = 9),
          legend.position = "none")+
-  facet_wrap(.~MES, ncol=1)+
+  facet_grid(ANO~MES)+
   labs(x="")+
   ggtitle('RECLAM Chirla')
 
@@ -288,15 +261,90 @@ cohist<- ggplot(datos_totalesco %>%
                                      vjust = 0.5,
                                      size = 9),
          legend.position = "none")+
-  facet_wrap(.~MES, ncol=1)+
+  facet_grid(ANO~MES)+
   labs(x="")+
   ggtitle('RECLAM Coquina')
 
 
 ggarrange(chhist,
           cohist,
-          ncol=2)
+          ncol=1)
 ```
+
+Tabla resumen de los individuos muestreados
+
+```{r}
+datos_totales <- datos_totales %>%
+  mutate(especie = "chirla")
+
+datos_totalesco_renombrado <- datos_totalesco %>%
+  rename(LONG = Longitud,
+         FECHA = Fecha,
+         ZONA = Zona,
+         hoja = hoja) %>%
+  mutate(especie = "coquina")
+
+# Unir datasets y añadir variables de fecha
+total_c <- bind_rows(datos_totales, datos_totalesco_renombrado) %>%
+  mutate(
+    ANO = year(FECHA),
+    MES = month(FECHA),
+    DIA = day(FECHA),
+    PUNTO = case_when(
+      hoja %in% c("1P1", "1P2", "1P3", "1C") ~ 1,
+      hoja %in% c("2P1", "2P2", "2P3", "2C") ~ 2,
+      hoja %in% c("3P1", "3P2", "3P3", "3C") ~ 3,
+      hoja %in% c("5P1", "5P2", "5P3", "5C") ~ 5,
+      TRUE ~ NA_real_
+    )
+  )
+
+# Tabla resumen
+tabla_resumen <- total_c %>%
+  group_by(ANO,MES, especie, PUNTO) %>%
+  summarise(N_individuos = n(), .groups = "drop") %>%
+  arrange(especie, PUNTO, MES)
+
+# Asegurarse que los objetos sean tibbles
+tabla_chirla <- as_tibble(tabla_resumen) %>%
+  filter(especie == "chirla") %>%
+  arrange(MES)
+
+tabla_coquina <- as_tibble(tabla_resumen) %>%
+  filter(especie == "coquina") %>%
+  arrange(MES)
+```
+
+
+```{r}
+ft <- flextable(tabla_chirla) %>%  
+  set_caption("Número de individuos muestreados de Chirla por mes y punto de muestreo") %>%  
+  autofit() %>%  
+  theme_vanilla() %>%  
+  fontsize(size = 10, 
+           part = "all") %>%  
+  font(fontname = "Arial", 
+       part = "all") %>%  
+  set_table_properties(layout = "autofit", width = .75)
+ft
+```
+
+
+```{r}
+ftc <- flextable(tabla_coquina) %>%  
+  set_caption("Número de individuos muestreados de Ccoquina por mes y punto de muestreo") %>%  
+  autofit() %>%  
+  theme_vanilla() %>%  
+  fontsize(size = 10, 
+           part = "all") %>%  
+  font(fontname = "Arial", 
+       part = "all") %>%  
+  set_table_properties(layout = "autofit", width = .75)
+ftc
+
+
+```
+
 
 ## Relacion Talla Peso
 
@@ -304,7 +352,7 @@ Análisis recopilados desde este [Repo](https://rpubs.com/jdmaestre/366409) and 
 Estos datos fueron muestreados solo durante el mes de Junio 2024.
 
 
-```{r}
+```{r fig.height=5, fig.width=8}
 tp_coquina <- read_excel(here("DATA_Old",
                               "Muestreo 200 ejemplares.xlsx"), 
     sheet = "coquina") %>% 
@@ -329,7 +377,7 @@ TP <- ggplot(tpcqch) +
 
 TP
 ```
-```{r}
+```{r fig.height=5, fig.width=8}
 # Leer y preparar los datos
 tp_coquina <- read_excel(here("DATA_Old", 
                               "Muestreo 200 ejemplares.xlsx"), 
@@ -373,8 +421,6 @@ TP
 
 ```
 
-parámetros 
-
 ```{r}
 # Transformación logarítmica de Longitud y Peso
 tpcqch_log <- tp_coquina %>%
@@ -404,33 +450,18 @@ intercepto_absoluto <- exp(intercepto_log)
 cat("Intercepto (log):", intercepto_log, "\n")
 cat("Pendiente (log):", pendiente_log, "\n")
 cat("Intercepto (absoluto):", intercepto_absoluto, "\n")
+```
 
-# Crear el gráfico con los datos originales y la línea de regresión ajustada
-TP <- ggplot(tp_coquina) +
-  geom_point(aes(Longitud, Peso, color = specie)) +
-  geom_smooth(aes(Longitud, Peso),
-              method = "gam",
-              color = "black",
-              se = TRUE) +
-  facet_wrap(.~specie, scale = "free_y") +
-  theme_bw()
 
-TP
-
-# step-2
-plot(parameters(modelo_completo))
-
-# step-3
-
+```{r}
 check <- check_normality(modelo_completo)
-plot(check, 
-     type="qq")
+plot(check, type="qq")
 
 
 results <- summary(correlation(tpcqch_log))
 plot(results, show_data = "points")
 ```
-# Mapas 
+### Mapas 
 
 Preguntar a Alejandro si todos los "Datos Lance" tienen la misma Info. Por q no tiene Oct?
 
@@ -454,28 +485,20 @@ coord_bo <- rbind(coord_ch,
 ```
 Unir base con `merge()`
 
-(revisar!)
 
 ```{r}
-# Renombrar columnas de datos_totalesco para que coincidan con datos_totales
-total_c <- rbind(datos_totales,
-                 datos_totalesco) %>% 
-  mutate(ANO = year(FECHA),
-         MES = month(FECHA),
-         DIA = day(FECHA))
-
 total_c_geo <- left_join(total_c, 
                      coord_bo,
                      by="hoja") %>% 
   drop_na(Longitud,
           Latitud) %>% 
   mutate(Longitud = - Longitud)
-total_c_geo
 
 # Convertir en objeto sf
 total_c_geo1 <- st_as_sf(total_c_geo, 
-                        coords = c("Longitud", "Latitud"),
-                        crs = "+init=epsg:4326")  # WGS84
+                        coords = c("Longitud", "Latitud"), 
+                        crs = 4326)  # 4326 = WGS84
+
 ```
 
 Leo un .shp
@@ -488,7 +511,7 @@ grilla <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/cuadrกculas_definitivo.shp") %>%
 ```
 
 
-```{r}
+```{r eval=FALSE}
 ggplot() +
   geom_sf(data = total_c_geo1) +  # Ajusta el tamaño de los puntos
   geom_sf(data = costandalucia, 
@@ -499,7 +522,7 @@ ggplot() +
   xlab(expression(paste(Longitude^o, ~'O'))) + 
   ylab(expression(paste(Latitude^o, ~'S'))) + 
   guides(size = guide_legend(title = "Talla Promedio (mm)")) +  
-  scale_size_continuous(range = c(3, 10)) +  
+  #scale_size_continuous(range = c(3, 10)) +  
   theme(legend.position = "right")   
   #coord_sf(xlim = c(-7.6, -6.3), ylim = c(36.65, 37.3))  # Ajuste con coord_sf
 
