@@ -1,20 +1,19 @@
 ---
 title: "Análisis exploratorio de datos de la componente biológica de *Donax trunculus* y *Chamelea gallina*"
 subtitle: "Proyecto RECLAM"
-author: "García, A.; Mardones, M; Delgado, M."
+author: "García, A.; Mardones, M; Silva, L; Delgado, M."
 date:  "`r format(Sys.time(), '%d %B, %Y')`"
 bibliography: RECLAM.bib
 csl: apa.csl
 output:
   bookdown::word_document2:
     reference_docx: AED_Biologico_template.docx
-    number_sections: false
-fig_caption: yes
-#bibliography: SA_krill.bib
+    number_sections: true
+    fig_caption: yes
+    fig_prefix: "Figura"
 always_allow_html: true
-#csl: apa.csl
 link-citations: yes
-toc: false
+toc: true
 linkcolor: blue
 linestretch: 1.3
 header-includes:
@@ -22,6 +21,7 @@ header-includes:
 - \selectfont
 - \usepackage{lscape}
 ---
+
 \newpage
 \tableofcontents
 \newpage
@@ -32,7 +32,6 @@ rm(list = ls())
 knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
                       warning = FALSE,
-                      fig.align = 'center',
                       dev = 'jpeg',
                       dpi = 300, 
                       fig.align='center')
@@ -70,11 +69,17 @@ here::here("DATA")
 
 # CONTEXTO
 
-El proyecto **RECLAM** tiene como objetivo general evaluar el estado poblacional de especies bentónicas de interés comercial, específicamente la coquina (*Donax trunculus*) y la chirla (*Chamelea gallina*), en áreas relevantes del Golfo de Cádiz. Estas especies representan un recurso importante para la pesca artesanal y semiindustrial, siendo esenciales para la sostenibilidad económica de comunidades costeras [@RECLAM2023].
+El proyecto RECLAM tiene entre sus principales objetivos establecer la estructura poblacional y la abundancia de las poblaciones de *Donax trunculus* (coquina) y *Chamelea gallina* (chirla) en el Golfo de Cádiz y Valencia.  Estas especies representan un recurso importante para la pesca artesanal y semiindustrial en la costa sur peninsular, siendo esenciales para la sostenibilidad económica de comunidades costeras [@RECLAM2023; @Silva2019].
 
-La dinámica poblacional de estos bivalvos puede verse afectada por múltiples factores, incluyendo la presión pesquera, la variabilidad ambiental y la estacionalidad reproductiva. En este contexto, la generación de información estandarizada a través de muestreos sistemáticos es clave para comprender la estructura de las poblaciones y orientar estrategias de gestión basadas en evidencia. Los principales objetivos son;
+Este objetivo se articula en base a la tarea 1 ("Parámetros poblacionales de la coquina y chirla") y subtareas 1.1 ("Muestreos dirigidos a la estimación de la densidad y la estructura poblacional"), 1.2 ("Estructura poblacional") y 1.3 ("Estimación del estado del stock"), de las que es responsable el Centro Oceanográfico de Cádiz (IEO-CSIC; COCAD). En el presente informe se reporta el desarrollo de actividades realizadas hasta la fecha, y relacionadas con las subtareas **1.1** y **1.2**. 
 
-- Realizar muestreos mensuales en los principales caladeros de coquina y chirla en el marco del proyecto RECLAM.
+\newpage
+
+# MATERIALES Y METODOS
+
+La dinámica poblacional de estos bivalvos puede verse afectada por múltiples factores, incluyendo la presión pesquera, la variabilidad ambiental y la estacionalidad reproductiva. En este contexto, la generación de información estandarizada a través de muestreos sistemáticos es clave para comprender la estructura de las poblaciones y orientar estrategias de gestión basadas en evidencia. Los principales objetivos de estas tareas en el marco del Proyecto RECLAM son:
+
+- Realizar muestreos mensuales en los principales caladeros de coquina.
 - Registrar la información biológica y pesquera de manera estandarizada.
 - Generar una base de datos estructurada y reutilizable para análisis poblacionales.
 - Identificar patrones espacio-temporales y estructura de tallas de ambas especies.
@@ -82,27 +87,98 @@ La dinámica poblacional de estos bivalvos puede verse afectada por múltiples f
 
 Los muestreos se realizan con una frecuencia mensual, cubriendo las principales áreas de pesca previamente identificadas.
 
+## Zona de Estudio 
 
-# Muestreo de *D. trunculus*
-
-En el caso de *D. trunculus*, el muestreo se realizó utilizando dos dragas manuales, similares a las que utilizan los recolectores locales de bivalvos (experimentales y comerciales). Estas dragas manuales tienen una estructura de hierro con una apertura de 44,5 cm de ancho que excava profundamente en el sedimento (hasta los 15 cm superiores), utilizando un tamaño de malla experimental (3 x 3 mm) para permitir la recolección de los individuos más pequeños y juveniles, y un tamaño de malla comercial (7 x 7 mm).
-
-Se establecieron tres transectos equidistantes paralelos a la costa (distancia entre transectos: 200 m) con estaciones a 0,2, 0,5 y 0,7 m de profundidad. En cada estación, los observadores científicos realizaron un arrastre de 25 m de largo paralelo a la costa. Se realizarón tres réplicas en cada estación cada mes. Cada arrastre fue georreferenciado mediante un GPS para calcular el área muestreada ($\text{m}^2$).
-
-La captura (organismos) retenida en la draga se vertió en un recipiente y se transportada a los laboratorios. Todos los organismos fueron identificados, contados y pesados.
-
-Dentro del Golfo de Cádiz, se establecieron tres estaciones entre los ríos Guadalquivir y Guadiana. Dos dentro de las costas y aguas protegidas del Parque Nacional de Doñana y una fuera de él. En el Golfo de Valencia, se han establecido cinco estaciones de muestreo en Oliva-Denia, Gandia, Tabernes, Cullera y Valencia.
-
-# Muestreo de *C. gallina*
+La Figura \@ref(fig:mapa) muestra la zona de estudio en la costa sur de España, donde se lleva a cabo el monitoreo de las pesquerías de Chirla y Coquina. El área comprende una franja costera entre los 36.6º y 37.4º de latitud norte, con puntos de muestreo distribuidos desde el Golfo de Cádiz hasta las cercanías de Huelva. Se identifican múltiples polígonos de seguimiento, cada uno etiquetado con un código (por ejemplo, AND101 a AND112 y AND601 a AND108), que representan unidades espaciales de monitoreo donde se recopila información biológica y pesquera. Estos polígonos incluyen tanto zonas someras cercanas a la costa como áreas más abiertas, lo que permite cubrir el rango de hábitats utilizados por ambas especies. (la distribución de los puntos de monitoreo lo haré pronto)
 
 
-En el caso de *C. gallina*, el muestreo se llevó a cabo utilizando una draga hidráulica comercial en el Golfo de Cádiz. Se definieron tres transectos equidistantes paralelos a la costa, con estaciones a 5 y 8 metros de profundidad durante la marea baja, totalizando 6 estaciones. Se realizaron tres réplicas en cada estación cada mes. En cada estación, la draga se desplegó y se arrastró paralelamente a la costa durante 10 minutos. Cada transecto también fue georreferenciado mediante un GPS para calcular el área muestreada ($\text{m}^2$).
+```{r eval=FALSE}
+coord_ch <- read_excel(here("DATA",
+                    "Bitacora_chirla_RECLAM.xlsx")) %>% 
+  dplyr::select(1, 2,3) %>% 
+  rename(ZONA = Punto,
+         Latitud =`Latitud inicio`,
+         Longitud = `Longitud inicio`)
 
+coord_co <- read_excel(here("DATA",
+                    "Bitacora_coquina_RECLAM.xlsx")) %>% 
+  dplyr::select(c(2,4,5)) %>% 
+  rename(ZONA = Réplica)
+
+coord_bo <- rbind(coord_ch,
+                  coord_co) %>% 
+  rename(hoja = ZONA)
+
+```
+
+
+```{r eval=FALSE, message=FALSE, warning=FALSE}
+total_c_geo <- left_join(total_c, 
+                     coord_bo,
+                     by="hoja") %>% 
+  drop_na(Longitud,
+          Latitud) %>% 
+  mutate(Longitud = - Longitud)
+
+# Convertir en objeto sf
+total_c_geo1 <- st_as_sf(total_c_geo, 
+                        coords = c("Longitud", "Latitud"), 
+                        crs = 4326)  # 4326 = WGS84
+```
+
+
+```{r eval=FALSE, message=FALSE}
+costandalucia <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/costa_proyectada.shp") %>% 
+  st_transform("+init=epsg:4326")
+grilla <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/cuadrกculas_definitivo.shp") %>% 
+  st_transform("+init=epsg:4326")
+```
+
+
+```{r eval=FALSE}
+ggplot() +
+  geom_sf(data = total_c_geo1) +  # Ajusta el tamaño de los puntos
+  geom_sf(data = costandalucia, 
+          fill = "#fee8c8") + 
+  geom_sf(data = grilla, 
+          fill = NA, col = "red") + 
+  theme_few() + 
+  xlab(expression(paste(Longitude^o, ~'O'))) + 
+  ylab(expression(paste(Latitude^o, ~'S'))) + 
+  guides(size = guide_legend(title = "Talla Promedio (mm)")) +  
+  #scale_size_continuous(range = c(3, 10)) +  
+  theme(legend.position = "right")   
+  #coord_sf(xlim = c(-7.6, -6.3), ylim = c(36.65, 37.3))  # Ajuste con coord_sf
+
+
+```
+
+
+```{r mapa, fig.cap= "Distribución espacial de los polígonos de muestreo utilizados en el monitoreo de las pesquerías de Chirla y Coquina en la costa suroccidental de España. Cada polígono (etiquetado con su correspondiente código AND) representa una unidad de marisqueo definido por la Junta de Andalucía."}
+knitr::include_graphics('FIG/mapa.png')
+```
+
+
+## Estrategia de muestreo
+
+### Muestreo dirigido a la estimación de la estructura poblacional y densidad de *D. trunculus* 
+
+
+En el Golfo de Cádiz se han establecido tres estaciones de muestreo entre los ríos Guadalquivir y Guadiana, en concreto, en el Parque Nacional de Doñana. En el Golfo de Valencia, se han establecido cinco estaciones de muestreo en Oliva-Denia, Gandia, Tabernes, Cullera y Valencia. Estas estaciones se visitan con periodicidad mensual para la toma de muestras comerciales y poblacionales. 
+
+Para la recogida de muestras poblacionales, se han establecido tres transectos equidistantes paralelos a la costa (réplicas) en cada estación. En cada transecto, los observadores científicos realizaron arrastres de 25 m de largo paralelo a la costa georreferenciado mediante un GPS para calcular el área muestreada ($\text{m}^2$). La recogida de muestras comerciales se realiza solo sobre un transecto.
+Los arrastres se realizan utilizando dos rastros a pie, uno similar a los que utilizan los mariscadores locales de bivalvos (rastro comercial) y otro modificado que permite la captura de individuos de pequeño tamaño (rastro poblacional). Estos rastros tienen una estructura de hierro con una apertura de 44,5 cm de ancho que excava profundamente en el sedimento (hasta los 15 cm), utilizando un tamaño de malla experimental (poblacional: 3 x 3 mm) para permitir la recolección de los individuos más pequeños y juveniles, y un tamaño de malla comercial (comercial: 7 x 7 mm). 
+La captura (organismos) retenida en cada rastro se almacena en la playa y se transporta al laboratorio. Todos los organismos se identifican siguiendo la nomenclatura WORMS (www.marinespecies.com) y literatura especializada en taxones específicos, se cuentan y pesan. Se obtuienen datos de densidad (ind/$\text{m}^2$) y biomasa (g/$\text{m}^2$).
+
+
+### Muestreo dirigido a la estimación de la estructura poblacional y densidad de de *C. gallina*
+
+
+En el caso de C. gallina, el muestreo se llevó a cabo utilizando una draga hidráulica comercial en el Golfo de Cádiz. Se definieron tres transectos equidistantes paralelos a la costa, con estaciones a 5 y 8 metros de profundidad durante la marea baja, totalizando 6 estaciones. Se realizaron tres réplicas en cada estación cada mes. En cada estación, la draga se desplegó y se arrastró paralelamente a la costa durante 10 minutos. Cada transecto también fue georreferenciado mediante un GPS para calcular el área muestreada ($\text{m}^2$).
 En el mar Mediterráneo, los muestreadores de la Universitat Politècnica de València ya estaban realizando muestreos similares, ajustando la profundidad a la geomorfología del Golfo de Valencia, que es muy diferente a la del Golfo de Cádiz.
-
 En el laboratorio, se registró el número de individuos retenidos de las especies objetivo para estimar la densidad poblacional (ind/$\text{m}^2$) y la biomasa (g/$\text{m}^2$) a partir de las muestras experimentales, y el rendimiento (kg por tiempo de pesca) a partir de las muestras comerciales. La longitud de la concha (SL) se midió con un calibrador digital Vernier hasta el 0,1 mm para producir distribuciones de frecuencias de longitud de todas las muestras.
+Se realizó un análisis exploratorio de las distribuciones de frecuencia de longitud de la valva mediante histogramas y estadística descriptiva por muestra y tipo de arte de pesca. Se estimaron parámetros poblacionales mediante modelos lineales y se evaluaron patrones espacio-temporales de variables clave, tales como la longitud media, abundancia relativa y proporción de adultos y juveniles, integrando herramientas gráficas y analíticas para caracterizar la dinámica poblacional de la especie.
 
-Se realizó un análisis exploratorio de las distribuciones de frecuencia de longitud de la concha mediante histogramas y estadística descriptiva por muestra y tipo de arte de pesca. Se estimaron parámetros poblacionales mediante modelos lineales y se evaluaron patrones espacio-temporales de variables clave, tales como la longitud media, abundancia relativa y proporción de adultos y juveniles, integrando herramientas gráficas y analíticas para caracterizar la dinámica poblacional de la especie.
 
 ## Estandarización de Datos
 
@@ -110,14 +186,11 @@ Todos los datos fueron registrados en formularios digitales y posteriormente alm
 
 El objetivo actual es coordinar que el muestreo de Valencia tenga el mismo formato para luego unificar las bases. Todos los análisis fueron realizados con las librerías "tidyverse" y "easystats" [@Ludecke2022; @Wickham2019].
 
-
 \newpage
 
-# RESULTADOS PRELIMINARES
+# RESULTADOS
 
-A continuación se presentan algunos resultados preliminares obtenidos durante los primeros meses de muestreo.
-
-
+## Datos obtenidos
 
 ```{r funcion}
 # Función para leer y combinar hojas de un archivo
@@ -133,8 +206,6 @@ leer_y_combinar <- function(archivo) {
   return(datos)
 }
 ```
-
-
 
 
 ```{r}
@@ -156,7 +227,6 @@ datos_lista <- lapply(archivos, leer_y_combinar)
 # Unir todos los datos en un solo data frame, agregando la columna "mes"
 datos_totales <- bind_rows(datos_lista)
 ```
-
 
 ```{r eval=FALSE}
 #Datos faltantes o `NA`
@@ -183,51 +253,6 @@ datos_totalesco <- bind_rows(datos_listaco)
 
 ```
 
-
-Ahora vizualizamos las frecuencias de tallas de ambas especies a través de los meses de muestreo.
-
-```{r fig.height=5, fig.width=8}
-chhist <- ggplot(datos_totales %>%
-                     mutate(ANO = year(FECHA),
-                            MES = month(FECHA),
-                            DIA = day(FECHA))
-                    )+
-  geom_histogram(aes(x=LONG), bins = 60,
-                 fill=NA,
-                 col=1) +
-  theme_bw()+
-   theme(axis.text.x = element_text(angle = 90,
-                                     hjust = 1,
-                                     vjust = 0.5,
-                                     size = 9),
-         legend.position = "none")+
-  facet_grid(ANO~MES)+
-  labs(x="")+
-  ggtitle('RECLAM Chirla')
-
-cohist<- ggplot(datos_totalesco %>%
-                     mutate(ANO = year(Fecha),
-                            MES = month(Fecha),
-                            DIA = day(Fecha))
-                    )+
-  geom_histogram(aes(x=Longitud), bins = 60,
-                 fill=NA,
-                 col=2) +
-  theme_bw()+
-   theme(axis.text.x = element_text(angle = 90,
-                                     hjust = 1,
-                                     vjust = 0.5,
-                                     size = 9),
-         legend.position = "none")+
-  facet_grid(ANO~MES)+
-  labs(x="")+
-  ggtitle('RECLAM Coquina')
-
-
-ggarrange(chhist,
-          cohist,
-          ncol=1)
-```
 
 
 
@@ -260,9 +285,10 @@ total_c <- bind_rows(datos_totales, datos_totalesco_renombrado) %>%
 
 ```
 
-Registros totalees por especie, mes, punto y replica.
+A continuación, se presenta de forma resumida la tipología del dato obtenido durante los primeros meses de muestreo. En la Figura \@ref(fig:regi), se presentan el número de individuos por especie, estación de muestreo y réplica, para cada mes de muestreo. Estos datos también se muestran desglosados en la Tabla 1 agregados por estación.
 
-```{r fig.width=10}
+
+```{r regi, fig.cap="Registros totales por especie, estación de muestreo y réplica, para cada mes de muestreo"}
 total_c %>%
   group_by(hoja, especie, MES, ANO) %>%
   summarise(n = n(), .groups = "drop") %>%
@@ -275,16 +301,17 @@ total_c %>%
     title = "",
     x = "Punto (replica)",
     y = "Número de individuos",
-    fill = "Mes"
+    fill = ""
   ) +
-  theme_minimal() +
-  theme(
+  theme_few() +
+  theme(legend.position = "bottom",
     text = element_text(size =9),
     axis.text.x = element_text(angle = 90, hjust = 1)
   )
 ```
 
-Tabla resumen de los individuos muestreados. Ahora resumimos losregistros por punto de muestreo, es decir, agrupando las replicas al punto correspondiente y lo representamos por tablas.
+
+Tabla 1 y 2 muestra el resumen de los individuos muestreados por especie, identificando, periodo y punto de muestreo.
 
 ```{r}
 # Tabla resumen
@@ -334,16 +361,62 @@ ftc
 
 ```
 
+La Figura \@ref(fig:proplot) muestra histogramas de frecuencia de tallas mensuales para Chirla (panel superior, en negro) y Coquina (panel inferior, en rojo) durante los años 2024 y 2025. En Chirla, las distribuciones del segundo semestre de 2024 presentan modas bien definidas entre 18 y 22 mm, mientras que en enero y febrero de 2025 aparece una nueva moda cercana a los 10 mm, lo que indica un posible evento de reclutamiento. En Coquina, se observan modas múltiples a lo largo del año, con una clara concentración de individuos pequeños (~10 mm) entre julio y septiembre de 2024, que se desplaza hacia tallas mayores en los meses siguientes, reflejando el crecimiento de esa cohorte. A comienzos de 2025 también se observa la aparición de una nueva moda de tallas pequeñas, compatible con un nuevo reclutamiento. En ambas especies, las variaciones en la forma y posición de las modas a lo largo del tiempo permiten identificar patrones estacionales de reclutamiento y seguimiento del desarrollo de las cohortes.
+
+
+```{r proplot, fig.height=5, fig.width=8, fig.cap="Estructura de tallas de Chamelea gallina (chirla) y Donax trunculus (coquina) en los muestreos mensuales."}
+chhist <- ggplot(datos_totales %>%
+                     mutate(ANO = year(FECHA),
+                            MES = month(FECHA),
+                            DIA = day(FECHA))
+                    )+
+  geom_histogram(aes(x=LONG), bins = 60,
+                 fill=NA,
+                 col=1) +
+  theme_bw()+
+   theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust = 0.5,
+                                     size = 9),
+         legend.position = "none")+
+  facet_grid(ANO~MES)+
+  labs(x="")+
+  ggtitle('RECLAM Chirla')
+
+cohist<- ggplot(datos_totalesco %>%
+                     mutate(ANO = year(Fecha),
+                            MES = month(Fecha),
+                            DIA = day(Fecha))
+                    )+
+  geom_histogram(aes(x=Longitud), bins = 60,
+                 fill=NA,
+                 col=2) +
+  theme_bw()+
+   theme(axis.text.x = element_text(angle = 90,
+                                     hjust = 1,
+                                     vjust = 0.5,
+                                     size = 9),
+         legend.position = "none")+
+  facet_grid(ANO~MES)+
+  labs(x="")+
+  ggtitle('RECLAM Coquina')
+
+
+ggarrange(chhist,
+          cohist,
+          ncol=1)
+```
+
 \newpage
 
-## Relacion Talla Peso
+## Estructura poblacional
 
-Análisis recopilados desde este [Repositorio](https://rpubs.com/jdmaestre/366409) y  [otro](http://derekogle.com/fishR/examples/oldFishRVignettes/LengthWeight.pdf)
+### Relaciones Alométricas
 
-Estos datos fueron muestreados durante el mes de Junio 2024. Durante el mes de Marzo del 2025 se realizó otro muestreo de relación Talla - Peso, pero sus datos aún no estan sistematizados.
+Generar relaciones Alómetricas permitirá estimar el peso esperado de cada especie en función de su longitud, facilitando el cálculo de biomasa como paso previo al desarrollo de evaluaciones y otros análisis comparativos espacio-temporales y entre poblaciones. Los datos utilizados en estos análisis preliminares se corresponden con los obtenidos en el mes de Junio 2024. Durante el mes de Marzo del 2025 se ha realizado otro muestreo de relación talla - peso, pero sus datos aún no están sistematizados. La s relaciones de longitud peso para ambas especies realizada durante un primer muestreo se ilustran en la Figura \@ref(fig:rlp)
 
 
-```{r fig.height=5, fig.width=8}
+```{r rlp, fig.height=5, fig.width=8, fig.cap="Relaciones talla-peso para *Chamelea gallina* y *Donax trunculus* (junio 2024)"}
 tp_coquina <- read_excel(here("DATA_Old",
                               "Muestreo 200 ejemplares.xlsx"), 
     sheet = "coquina") %>% 
@@ -371,10 +444,41 @@ TP <- ggplot(tpcqch) +
 TP
 ```
 
+Se presenta la relación alométrica entre el logaritmo del peso (log_Peso) y el logaritmo de la longitud (log_Longitud) para las especies **Chirla** y **Coquina**.
 
-## Análisis alométrico de Chirla y Coquina
 
-Se presenta la relación alométrica entre el logaritmo del peso (log_Peso) y el logaritmo de la longitud (log_Longitud) para las especies **Chirla** y **Coquina**. La transformación logarítmica se aplicó sobre la ecuación clásica del modelo alométrico \( W = aL^b \), lo que permite linealizar la relación mediante la expresión:
+```{r fig.height=5, fig.width=8}
+# Unir datasets
+tpcqch <- bind_rows(tp_chirla, tp_coquina) %>%
+  mutate(log_Longitud = log(Longitud),
+         log_Peso = log(Peso))
+
+# Crear el gráfico con lm() y mostrar ecuación + R²
+TP <- ggplot(tpcqch, aes(x = log_Longitud, 
+                         y = log_Peso,
+                         color = specie)) +
+  geom_point() +  # Puntos de datos transformados
+  geom_smooth(method = "lm", se = TRUE, 
+              color = "black") +  # Línea de regresión lineal
+  facet_wrap(.~specie, scale = "free_y") +
+  scale_color_viridis_d(option="H")+
+ stat_poly_eq(aes(label = paste(after_stat(eq.label), "\n", after_stat(rr.label))), 
+               formula = y ~ x, 
+               parse = TRUE, 
+               label.x.npc = "right", 
+               label.y.npc = 3) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label), "\n", after_stat(rr.label))), 
+               formula = y ~ x, 
+               parse = TRUE, 
+               label.x.npc = "right", 
+               label.y.npc = 3) +
+  theme_few()  # Estilo del gráfico
+
+TP
+```
+
+
+La transformación logarítmica se aplicó sobre la ecuación clásica del modelo alométrico \( W = aL^b \), lo que permite linealizar la relación mediante la expresión:
 
 \[
 \log(W) = \log(a) + b \cdot \log(L)
@@ -398,15 +502,108 @@ La dispersión de los datos es baja en ambas especies, y la línea de tendencia 
 
 Volviendo a la escala original, se pueden expresar las ecuaciones como:
 
-- Para la Chirla: \( W = 9.2 \times 10^{-4} \cdot L^{2.95} \)
-- Para la Coquina: \( W = 1.13 \times 10^{-3} \cdot L^{2.92} \)
+- Para la Chirla: \( W = 9.210 \times 10^{-4} L^{2.95} \quad (p < 0.001; \, R^2 = 0.982) \)
+- Para la Coquina: \( W = 1.13 \times 10^{-3} \cdot L^{2.92} \quad (p < 0.001; \, R^2 = 0.982) \)
 
 Estas funciones permiten estimar el peso esperado de cada especie en función de su longitud, facilitando el cálculo de biomasa, conversiones talla-peso, y análisis comparativos entre poblaciones.
 
-A continuación, se podría aplicar una prueba de homogeneidad de pendientes para evaluar si la diferencia entre las curvas de ambas especies es estadísticamente significativa.
+
+```{r eval=FALSE}
+resultsco <- summary(correlation(tpcqch_log))
+plot(resultsco, 
+     show_data = "points")+
+  theme_bw()
+resultschi <- summary(correlation(tpch_log))
+plot(resultschi,
+     show_data = "points")+
+  theme_bw()
+```
 
 
-```{r}
+
+### Índice de Reclutamiento para coquina y chirla
+
+se calculará un índice de reclutamiento simple en las especies de coquina y chirla, utilizamos un proceso de estandarización relativa de los datos de tallas menores a 15 mm. La transformación se aplica a la variable longitud (mm), que representa la proporción de individuos bajo talla, transformada mediante el logaritmo de la proporción. El cálculo del índice de reclutamiento sigue los siguientes pasos:
+
+1. Se definen los valores mínimos y máximos para el rango objetivo de normalización. En este caso, los límites de normalización son:
+
+   - Límite inferior: \( a = -1 \)
+   - Límite superior: \( b = 1 \)
+
+2. Se calculan el valor mínimo y máximo de la longitud de la valva de los cuales se quiere obtener el índice de reclutamiento:
+
+   - *`min_x`*: el valor mínimo de la variable.
+   - *`max_x`*: el valor máximo de la variable.
+
+3. Se aplica la siguiente fórmula de normalización para transformar los datos y obtener el índice de reclutamiento:
+
+   \[
+   \text{Prop Length} = \frac{(\text{Prop Length} - \text{min}_x)}{(\text{max}_x - \text{min}_x)} \times (b - a) + a
+   \]
+
+   En esta fórmula:
+   - *Prop Length* es el valor de la proporción de individuos bajo la talla.
+   - *min_x* y *max_x* son los valores mínimo y máximo de *Prop Length*, respectivamente.
+   - *a* y *b* son los límites inferior y superior del rango de normalización, establecidos en -1 y 1, respectivamente.
+
+
+Este índice permite identificar problemas en el proceso de reclutamiento, como condiciones ambientales adversas, sobrepesca o destrucción de hábitats, que podrían dificultar la regeneración de la población. En términos de gestión pesquera, el índice es esencial para ajustar las cuotas de captura y establecer medidas de protección, como tamaños mínimos de captura o áreas de veda, para garantizar la sostenibilidad de las poblaciones. También facilita la comprensión de la dinámica poblacional y la predicción de tendencias futuras. 
+
+### Estimación de Parámetros: 
+
+Para el análisis de la distribución de frecuencias de tallas se empleará la versión modificada de la función de crecimiento de Von Bertalanffy (VBGF) que incorpora oscilación estacional en el crecimiento, y se ajustará utilizando el método ELEFAN para análisis de datos de frecuencia de longitud [@Pauly1980a] a travéss de la aplicación del paquete de R [@R2024] llamado "TropfishR" [@Mildenberger2017]. Los índices compuestos de growth performance, como phi prime, permiten realizar comparaciones inter e intraespecíficas (entre poblaciones). Este índice de phi prime se calculará utilizando las expresiones de @Pauly1987 y  Munro y Pauly (1983). El método Bahttacharya se aplicará para el análisis de cohorte. Estos análisis se llevarán a cabo una vez se cuente con mínimo un año de seguimiento mensual de las poblaciones.
+
+### Densidad poblacional
+
+La densidad poblacional se calcula como el número de individuos por unidad de área, en este caso, individuos por metro cuadrado (ind/$\text{m}^2$). Para obtener esta densidad, se debe considerar el número de organismos capturados durante los arrastres, los cuales se realizan a lo largo de transectos georreferenciados para ambas especies. La densidad se calcula dividiendo el número total de individuos capturados en cada arrastre entre el área muestreada. El área muestreada depende de la longitud del arrastre y el ancho del rastro (ya sea manual o draga hidráulica) utilizado. Entonces, el área de cada arrastre es multiplicado por el ancho del arraste, y la densidad se obtiene dividiendo el número de individuos por el área de muestreo en metros cuadrados.
+
+Para realizar un análisis comparativo temporal y espacial de la densidad poblacional de chirla y coquina, se pueden utilizar tanto técnicas paramétricas como no paramétricas, dependiendo de la distribución de los datos. En el análisis temporal, si los datos siguen una distribución normal, se puede aplicar un análisis de varianza (ANOVA) [@ANOVA2014] o una prueba t para comparar las medias de densidad en diferentes momentos. Si los datos no son normales, se puede utilizar la prueba de Kruskal-Wallis o la prueba de Wilcoxon para comparar medianas. En el análisis espacial, para comparar las densidades entre estaciones, se puede usar ANOVA o Kruskal-Wallis, dependiendo de la distribución de los datos.
+
+
+### Evaluación de stock
+
+Por ahora se pondrá el método que utiliza Luis. Cuando  Luis y Jorge tengan preparadas las bases de datos podrá Mauricio aplicar nuevas metodologías. Mientras no nos cojamos los dedos, y pongamos solo la que se ha aplicado por ahora.
+
+Marina. Recuerda que tambien esta realizdaa la evaluacion de stock de Coquina con el modelo integrado. Podemos mostrar variables relativas de salida. Si bien no se hizo con los datos del RECLAM, pasa lo mismo con el modelo data poor que usa Luis, dado que también usaría datos históricos. 
+
+
+### Producción anual secundaria de *Chamelea gallina*.
+
+
+Está prevista la determinación de la producción anual total (junio de 2024-mayo de 2024) en la zona submareal. Se calculará mediante el método de la tasa de crecimiento específica de biomasa (Brey, 2001). Este método requerirá datos sobre la relación SL-AFDW, distribuciones de frecuencia de longitud de valva de muestras agrupadas y parámetros VBGF. Para ello se recogerán muestras adicionales de 50 individuos (tomados al azar) en el mes de mayo de 2025 para los análisis de biomasa, mediante la determinación del peso seco de tejidos blandos y valvas libres de ceniza (AFDW). 
+
+
+## Análisis Estadístico de las Diferencias entre Poblaciones de Valencia y Cádiz
+
+Una vez obtenidas las muestras de las poblaciones de Valencia, se procederá con un análisis estadístico exhaustivo para evaluar la existencia de diferencias significativas entre las poblaciones de ambas especies en función de diversas variables. Para ello, se aplicarán pruebas estadísticas de comparación de pendientes y *ANCOVA* (Análisis de Covarianza [@cook1979] con el objetivo de identificar posibles diferencias en tallas, parámetros y patrones de crecimiento.
+
+-  Prueba de Homogeneidad de Pendientes:
+
+Para evaluar si las poblaciones presentan la misma respuesta a las variables explicativas, se realizará una prueba de homogeneidad de pendientes. Este análisis permite verificar si la pendiente de la relación entre la variable dependiente (por ejemplo, biomasa, densidad, etc.) y la variable independiente (por ejemplo, tamaño, profundidad, etc.) es homogénea a través de las distintas poblaciones. Si se detectan diferencias significativas en las pendientes, esto indicaría que las poblaciones responden de manera diferente a los factores explicativos y justificaría el uso de modelos separados para cada población.
+
+- Análisis de Covarianza (ANCOVA):
+   
+Para investigar las diferencias entre las poblaciones, se aplicará un ANCOVA. Este modelo estadístico permite evaluar las diferencias en las medias de la variable dependiente entre las poblaciones, ajustando por posibles efectos de covariables que puedan influir en la variable dependiente (por ejemplo, la edad o el tamaño de los individuos). El ANCOVA no solo compara las medias, sino que también tiene en cuenta la variabilidad de las covariables, lo que ofrece una estimación más precisa de las diferencias poblacionales.
+
+El modelo de ANCOVA se especificará como sigue:
+
+   \[
+   Y_{ij} = \mu + \alpha_i + \beta X_{ij} + \varepsilon_{ij}
+   \]
+
+Donde:
+   - \( Y_{ij} \) es el valor observado de la variable dependiente (por ejemplo, densidad o biomasa) para el individuo \( j \) en la población \( i \),
+   - \( \mu \) es la media general,
+   - \( \alpha_i \) es el efecto específico de la población \( i \),
+   - \( \beta \) es el coeficiente de la covariable \( X_{ij} \) (por ejemplo, tamaño o edad),
+   - \( X_{ij} \) es la covariable (por ejemplo, tamaño o profundidad),
+   - \( \varepsilon_{ij} \) es el error aleatorio.
+
+
+Los resultados de estas pruebas proporcionarán información clave sobre las diferencias en la dinámica poblacional entre las poblaciones de Valencia y Cádiz, lo que permitirá inferir si existen factores ecológicos, biológicos o ambientales que afectan de manera diferenciada a cada población. Dependiendo de los resultados, se podrán realizar recomendaciones sobre la gestión de las poblaciones y la conservación de los recursos marinos en la región.
+
+
+```{r eval=FALSE}
 # Transformación logarítmica de Longitud y Peso
 tpcqch_log <- tp_coquina %>%
   mutate(log_Longitud = log(Longitud),
@@ -444,9 +641,7 @@ kable(tabla_resultados, caption = "Resumen del modelo de regresión log-log Coqu
 
 
 
-Luego, con los datos transformados, comienzo  el calculo de parámetros por recurso.
-
-```{r}
+```{r eval=FALSE}
 # Transformación logarítmica de Longitud y Peso
 tpch_log <- tp_chirla %>%
   mutate(log_Longitud = log(Longitud),
@@ -483,126 +678,6 @@ kable(tabla_resultados, caption = "Resumen del modelo de regresión log-log Chir
 ```
 
 
-Compruebo la pertinencia de transformación de datos para hacer las correlaciones para coquina
-
-```{r}
-resultsco <- summary(correlation(tpcqch_log))
-plot(resultsco, 
-     show_data = "points")+
-  theme_bw()
-```
-
-
-y luego para chirla
-
-```{r}
-resultschi <- summary(correlation(tpch_log))
-plot(resultschi,
-     show_data = "points")+
-  theme_bw()
-```
-
-
-
-\newpage
-
-Visualización de los resultados
-
-
-```{r fig.height=5, fig.width=8}
-# Unir datasets
-tpcqch <- bind_rows(tp_chirla, tp_coquina) %>%
-  mutate(log_Longitud = log(Longitud),
-         log_Peso = log(Peso))
-
-# Crear el gráfico con lm() y mostrar ecuación + R²
-TP <- ggplot(tpcqch, aes(x = log_Longitud, 
-                         y = log_Peso,
-                         color = specie)) +
-  geom_point() +  # Puntos de datos transformados
-  geom_smooth(method = "lm", se = TRUE, 
-              color = "black") +  # Línea de regresión lineal
-  facet_wrap(.~specie, scale = "free_y") +
-  scale_color_viridis_d(option="H")+
-  stat_poly_eq(aes(label = after_stat(eq.label)), 
-               formula = y ~ x, 
-               parse = TRUE, 
-               label.x.npc = "right", 
-               label.y.npc = 3) +  # Mostrar ecuación
-  stat_poly_eq(aes(label = after_stat(rr.label)), 
-               formula = y ~ x, 
-               parse = TRUE, 
-               label.x.npc = "right", 
-               label.y.npc = 2) +  # Mostrar R²
-  theme_few()  # Estilo del gráfico
-
-# Mostrar gráfico
-TP
-
-
-```
-
-
-```{r}
-coord_ch <- read_excel(here("DATA",
-                    "Bitacora_chirla_RECLAM.xlsx")) %>% 
-  dplyr::select(1, 2,3) %>% 
-  rename(ZONA = Punto,
-         Latitud =`Latitud inicio`,
-         Longitud = `Longitud inicio`)
-
-coord_co <- read_excel(here("DATA",
-                    "Bitacora_coquina_RECLAM.xlsx")) %>% 
-  dplyr::select(c(2,4,5)) %>% 
-  rename(ZONA = Réplica)
-
-coord_bo <- rbind(coord_ch,
-                  coord_co) %>% 
-  rename(hoja = ZONA)
-
-```
-
-
-```{r message=FALSE, warning=FALSE}
-total_c_geo <- left_join(total_c, 
-                     coord_bo,
-                     by="hoja") %>% 
-  drop_na(Longitud,
-          Latitud) %>% 
-  mutate(Longitud = - Longitud)
-
-# Convertir en objeto sf
-total_c_geo1 <- st_as_sf(total_c_geo, 
-                        coords = c("Longitud", "Latitud"), 
-                        crs = 4326)  # 4326 = WGS84
-```
-
-
-```{r eval=FALSE, message=FALSE}
-costandalucia <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/costa_proyectada.shp") %>% 
-  st_transform("+init=epsg:4326")
-grilla <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/cuadrกculas_definitivo.shp") %>% 
-  st_transform("+init=epsg:4326")
-```
-
-
-```{r eval=FALSE}
-ggplot() +
-  geom_sf(data = total_c_geo1) +  # Ajusta el tamaño de los puntos
-  geom_sf(data = costandalucia, 
-          fill = "#fee8c8") + 
-  geom_sf(data = grilla, 
-          fill = NA, col = "red") + 
-  theme_few() + 
-  xlab(expression(paste(Longitude^o, ~'O'))) + 
-  ylab(expression(paste(Latitude^o, ~'S'))) + 
-  guides(size = guide_legend(title = "Talla Promedio (mm)")) +  
-  #scale_size_continuous(range = c(3, 10)) +  
-  theme(legend.position = "right")   
-  #coord_sf(xlim = c(-7.6, -6.3), ylim = c(36.65, 37.3))  # Ajuste con coord_sf
-
-
-```
 
 \newpage
 
