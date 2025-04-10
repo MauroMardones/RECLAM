@@ -564,8 +564,35 @@ Para realizar un análisis comparativo temporal y espacial de la densidad poblac
 
 Por ahora se pondrá el método que utiliza Luis. Cuando  Luis y Jorge tengan preparadas las bases de datos podrá Mauricio aplicar nuevas metodologías. Mientras no nos cojamos los dedos, y pongamos solo la que se ha aplicado por ahora.
 
-Marina. Recuerda que tambien esta realizdaa la evaluacion de stock de Coquina con el modelo integrado. Podemos mostrar variables relativas de salida. Si bien no se hizo con los datos del RECLAM, pasa lo mismo con el modelo data poor que usa Luis, dado que también usaría datos históricos. 
+#### Metodo evaluación stock de coquina 
 
+El modelo de dinámica poblacional de la coquina, corresponderá a un enfoque de evaluación del tipo estadístico con estructura de edad, donde la dinámica progresa avanzando en el tiempo t, y las capturas son causantes de la mortalidad por pesca F, la mortalidad natural es constante `M = 0.99`. La relación entre la población y las capturas responde a la base de la ecuación de Baranov, y se consideran para el modelo y estimaciones el rango de edad entre 1 a 5+ (años). Sin embargo, las estimaciones del modelo tienen su origen en la edad cero sobre la base de una condición inicial estado estable. La dinámica esta modelada por un reclutamiento tipo Beverton y Holt.
+
+
+De manera sencilla, un modelo de evaluación reproduce la dinámica poblacional de coquina a lo largo del tiempo. Este modelo incorpora parámetros biológicos clave como tasas de crecimiento, tasas de mortalidad, reclutamiento y biomasa desovante. Normalmente, el modelo se formula utilizando ecuaciones matemáticas que describen cómo estos parámetros interactúan para determinar la abundancia y distribución de coquina en el área de estudio. La ecuación de estado de creciiento poblacional de coquina puede representarse como:
+
+\[
+N_t = N_{t-1} \cdot e^{(r - M)} + R
+\]
+
+Donde:
+- \(N_t\) es abundancia de coquina en el tiempo \(t\).
+- \(N_{t-1}\) abundancia de coquina en pasos de tiempo previos.
+- \(r\) es la tasa de crecimiento poblacional intrinseca.
+- \(M\) es la tasa de mortalidad natural.
+- \(R\) es el reclutamiento de nuevos individuos al stock.
+
+
+
+La ecuación previa describe la dinámica básica de la población de coquina, con la abundancia cambiando con el tiempo debido al crecimiento, la mortalidad y el reclutamiento. Junto a esta ecuación, otros submodelos asociados como crecimiento individual, selectividad, madurez, captura a la edad entre otros estan configurados en SS3. Este plataforma de evaluación de stock está diseñada como un modelo integrado con dinámica en edad y datos en talla, en la clase de modelo denominado *Modelo de análisis integrado*. SS3 tiene un sub-modelo poblacional de stock que simula crecimiento, madurez, fecundidad, reclutamiento, movimiento, y procesos de mortalidad, y sub-modelos de observation y valores esperados para diferentes tipos de datos. El modelo es codificado en C++ con parámetros de estimación activados por diferenciación automática (ADMB) [@Methot2013]. El análisis de resultados y salidas emplea herramientas de R e interfase gráfica de la librería `r4ss` (<https://github.com/r4ss/r4ss>) [@Taylor2019] y `ss3diags`  [@Henning2023]. 
+
+Los datos analizados que formarán parte del modelo serán clasificados de acuerdo a su origen. A saber;
+
+a.  Desembarque  artesanal del período (2004-2024), provenientes de las estadisticas oficiales de [IDAPES](https://www.juntadeandalucia.es/agriculturaypesca/idapes/servlet/FrontController) asociados al sector de marisquería del Parque Doñana y cercanías. Cabe señalar que en esta pesquería aun no se realizan procesos de corrección de desembarques y que serán propuestos como escenarios de modelación.
+
+b.  Información de los programas de monitoreo poblacional y comercial que lleva a cabo el IEO desee el año 2013. En este monitoreo se recopila información biológica, pesquera y ambiental. 
+
+c . Información relativa a los parámetros de historia de vida de la coquina a nivel europeo y local. Esta información está contenida en artículos científicos y reportes que fueron compilados con el fin de parametrizar los modelos de evaluación.
 
 ### Producción anual secundaria de *Chamelea gallina*.
 
