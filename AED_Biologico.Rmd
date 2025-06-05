@@ -111,7 +111,6 @@ coord_bo <- rbind(coord_ch,
 
 ```
 
-
 ```{r eval=FALSE, message=FALSE, warning=FALSE}
 total_c_geo <- left_join(total_c, 
                      coord_bo,
@@ -130,8 +129,7 @@ total_c_geo1 <- st_as_sf(total_c_geo,
 ```{r eval=FALSE, message=FALSE}
 costandalucia <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/costa_proyectada.shp") %>% 
   st_transform("+init=epsg:4326")
-grilla <- st_read("~/IEO/IN_BENTOS/SHP_Chirla/cuadrกculas_definitivo.shp") %>% 
-  st_transform("+init=epsg:4326")
+
 ```
 
 
@@ -155,7 +153,7 @@ ggplot() +
 
 
 ```{r mapa, fig.cap= "Distribución espacial de los polígonos de muestreo utilizados en el monitoreo de las pesquerías de Chirla y Coquina en la costa suroccidental de España. Cada polígono (etiquetado con su correspondiente código AND) representa una unidad de marisqueo definido por la Junta de Andalucía."}
-knitr::include_graphics('FIG/mapa.png')
+knitr::include_graphics('~/IEO/SA_Donax_trunculus/Fig/area_conceptual.png')
 ```
 
 
@@ -288,28 +286,69 @@ total_c <- bind_rows(datos_totales, datos_totalesco_renombrado) %>%
 A continuación, se presenta de forma resumida la tipología del dato obtenido durante los primeros meses de muestreo. En la Figura \@ref(fig:regi), se presentan el número de individuos por especie, estación de muestreo y réplica, para cada mes de muestreo. Estos datos también se muestran desglosados en la Tabla 1 agregados por estación.
 
 
-```{r regi, fig.cap="Registros totales por especie, estación de muestreo y réplica, para cada mes de muestreo"}
-total_c %>%
+```{r regi, fig.cap="Registros totales por especie, estación de muestreo y réplica, para cada mes de muestreo de coquina"}
+
+total_coquina <- total_c %>%
+  filter(especie == "coquina") %>%
   group_by(hoja, especie, MES, ANO) %>%
   summarise(n = n(), .groups = "drop") %>%
   ggplot(aes(x = hoja, y = n, fill = as.factor(especie))) +
-  geom_col(position = "dodge",
-           width = 0.5) +
-  scale_fill_viridis_d(option="H")+
-  facet_wrap(ANO~ MES, ncol=4) +
+  geom_col(position = "dodge", width = 0.5) +
+  geom_text(
+    aes(label = n),
+    vjust = -0.5,            # Ajuste vertical del texto
+    size = 2,
+    position = position_dodge(width = 0.5)  # Igual al ancho de barra
+  ) +
+  scale_fill_viridis_d(option = "B") +
+  facet_wrap(ANO ~ MES, ncol = 4) +
   labs(
-    title = "",
-    x = "Punto (replica)",
+    title = expression("Coquina (" * italic("D. trunculus") * ")"),
+    x = "Punto (réplica)",
     y = "Número de individuos",
     fill = ""
   ) +
   theme_few() +
-  theme(legend.position = "bottom",
-    text = element_text(size =9),
+  theme(
+    legend.position = "none",
+    text = element_text(size = 9),
     axis.text.x = element_text(angle = 90, hjust = 1)
   )
+
+total_coquina
+
 ```
 
+```{r regich, fig.cap="Registros totales por especie, estación de muestreo y réplica, para cada mes de muestreo de chirla"}
+total_chirla <- total_c %>%
+  filter(especie == "chirla") %>%
+  group_by(hoja, especie, MES, ANO) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  ggplot(aes(x = hoja, y = n, fill = as.factor(especie))) +
+  geom_col(position = "dodge", width = 0.5) +
+  geom_text(
+    aes(label = n),
+    vjust = -0.5,            # Ajuste vertical del texto
+    size = 2,
+    position = position_dodge(width = 0.5)  # Igual al ancho de barra
+  ) +
+  scale_fill_viridis_d(option = "B") +
+  facet_wrap(ANO ~ MES, ncol = 4) +
+  labs(
+    title = expression("Chirla (" * italic("C. gallina") * ")"),
+    x = "Punto (réplica)",
+    y = "Número de individuos",
+    fill = ""
+  ) +
+  theme_few() +
+  theme(
+    legend.position = "none",
+    text = element_text(size = 9),
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+total_chirla
+```
 
 Tabla 1 y 2 muestra el resumen de los individuos muestreados por especie, identificando, periodo y punto de muestreo.
 
@@ -380,7 +419,8 @@ chhist <- ggplot(datos_totales %>%
                                      size = 9),
          legend.position = "none")+
   facet_grid(ANO~MES)+
-  labs(x="")+
+  labs(y="Nº individuos",
+       x= "Longitud (mm)")+
   ggtitle('RECLAM Chirla')
 
 cohist<- ggplot(datos_totalesco %>%
@@ -398,13 +438,12 @@ cohist<- ggplot(datos_totalesco %>%
                                      size = 9),
          legend.position = "none")+
   facet_grid(ANO~MES)+
-  labs(x="")+
+  labs(y="Nº individuos",
+       x= "Longitud (mm)")+
   ggtitle('RECLAM Coquina')
 
 
-ggarrange(chhist,
-          cohist,
-          ncol=1)
+ggarrange(chhist, cohist, ncol=1)
 ```
 
 \newpage

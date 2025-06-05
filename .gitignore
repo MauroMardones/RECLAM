@@ -10,3 +10,5 @@ AED_Biologico_files/*
 AED_Biologico.docx
 *.Rdata
 *.rds
+*.pdf
+*.docx
