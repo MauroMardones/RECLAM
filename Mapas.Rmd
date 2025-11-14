@@ -1,0 +1,275 @@
+---
+title: "Mapas Distribución Variables D. trunculus"
+subtitle: "Datos Monitoreo poblacional FEMP_AND_04"
+author: "Mardones, M; Delgado, M"
+date:  "`r format(Sys.time(), '%d %B, %Y')`"
+bibliography: EDA_donux.bib
+csl: apa.csl
+link-citations: yes
+linkcolor: blue
+output: 
+  html_document:
+    fig-caption: yes
+    keep_md: true
+    toc: true
+    toc_deep: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    theme: cosmo
+    fontsize: 0.9em
+    linestretch: 1.7
+    html-math-method: katex
+    self-contained: true
+    code-tools: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup1}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      dev = 'jpeg',
+                      dpi = 300, 
+                      fig.align='center')
+#XQuartz is a mess, put this in your onload to default to cairo instead
+options(bitmapType = "cairo") 
+# (https://github.com/tidyverse/ggplot2/issues/2655)
+# Lo mapas se hacen mas rapido
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggridges)
+library(readxl)
+library(here)
+library(lubridate)
+library(readr)
+library(ggthemes)
+library(hrbrthemes)
+library(viridis)
+library(kableExtra)
+library(ggalt)
+library(rnaturalearth)
+library(sf)
+library(psych)
+```
+
+# MAPAS
+
+Ahora produzco un mapa de las `Zonas De Producción`. Estos datos vectoriales fueron obtenidos desde la paina oficial de datos espaciales de la Junta de Andalucia [Shapesfile](https://portalrediam.cica.es/descargas?path=%2F08_AMBITOS_INTERES_AMBIENTAL%2F02_LITORAL_MARINO%2F04_SOCIOECONOMIA%2FZonasProduccionMoluscos)
+
+Para ello tengo una seré de `.shp` para ir explorando.
+
+Debo identificar clsaramete los poligonos utilizados en coquina.
+
+## Leo Shapes y transformo a la proyección correcta.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+spain <- ne_countries(country = "spain",  
+                      scale="medium", 
+                      returnclass = 'sf')
+portug<- ne_countries(country = "portugal",  
+                      scale="medium", 
+                      returnclass = 'sf')
+costandalucia <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/05_10_Playa.shp')
+baty <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/batimetria_rediam20x20_15m_id.shp')
+zonapro <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/zzpp_resolucion_2023_25830.shp')
+zonape <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/05_09_ZonaIdoneaPesca.shp')
+resepe <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/Res_Pesca_Des_Gualquivir.shp')
+fisicomar <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/05_01_FisiograficoMarino.shp')
+playas <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/playas.shp')
+lito <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/05_02_Litologia.shp')
+hidro <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/red_hidrografica.shp')
+cuencas <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/cuencas.shp')
+costa <- st_read('~/IEO/FEMP_04/Shapefiles_Andalucia/costa_proyectada.shp')
+```
+
+## Transforma data
+```{r message=FALSE, warning=FALSE}
+costandalucia1 <- st_transform(costandalucia, "+init=epsg:4326")
+zonapro1 <- st_transform(zonapro, "+init=epsg:4326")
+zonape1 <- st_transform(zonape, "+init=epsg:4326")
+fisicomar1 <- st_transform(fisicomar, "+init=epsg:4326")
+playas1 <- st_transform(playas, "+init=epsg:4326")
+lito1 <- st_transform(lito, "+init=epsg:4326")
+spain1 <- st_transform(spain, "+init=epsg:4326")
+portug1 <- st_transform(portug, "+init=epsg:4326")
+cuencas1 <- st_transform(cuencas, "+init=epsg:4326")
+#lmarino1 <- st_transform(lmarino, "+init=epsg:4326")
+hidro1 <- st_transform(hidro, "+init=epsg:4326")
+costa1 <- st_transform(costa, "+init=epsg:4326")
+baty1 <- st_transform(baty, "+init=epsg:4326")
+resepe1 <- st_transform(resepe, "+init=epsg:4326")
+```
+
+
+## Agregar Data Frame con Puntos de Muestreo
+
+
+```{r}
+Coordenadas <- read_excel("Coordenadas.xlsx")
+
+coord <- Coordenadas %>% 
+  mutate(Long_Dec1=Long_Dec*-1) %>% 
+  st_as_sf(coords = c("Long_Dec1", "Lat_Dec"),  
+                  crs = "+init=epsg:4326") 
+
+```
+
+# Mapa
+ 
+```{r warning=FALSE}
+mas <- ggplot() +
+  geom_sf(data = costa1, fill="white") +
+  geom_sf(data = portug1, fill="white") +
+  geom_sf(data = zonapro1, aes(fill=ZONA)) +
+  # geom_sf(data = fisicomar1, alpha=0.1,
+  #         linetype=5) +
+  scale_fill_viridis_d(option="H",
+                       alpha=.5)+
+  coord_sf() +
+  xlab(expression(paste(Longitude^o,~'O'))) +
+  ylab(expression(paste(Latitude^o,~'S')))+
+  ggrepel::geom_label_repel(
+    data = zonapro1,
+    aes(label = ZONA, geometry = geometry),
+    stat = "sf_coordinates",
+    min.segment.length = ,
+    colour = "black",
+    size = 2,
+    segment.colour = "black",
+    box.padding = 0.7,
+    max.overlaps = 50) +
+  theme_few()+
+  theme(legend.position = "none")+
+  xlim(-7.6,-6)+
+  ylim(36.6, 37.4)
+mas
+```
+## MapaRECLAM proy
+
+
+```{r}
+# Centroides de ZONA (zonapro1)
+centroids_zona <- zonapro1 %>%
+  filter(ZONA %in% c("AND106", "AND107")) %>%
+  st_centroid()
+
+# Centroides de Zona (resepe1)
+centroids_reserva <- resepe1 %>%
+  filter(Zona %in% c("Zona B")) %>%
+  mutate(Zona = "Reserva") %>%
+  st_centroid()
+
+
+```
+
+
+```{r warning=FALSE}
+# Filtrar puntos del 1 al 5
+coord_filt <- coord %>% 
+  filter(Punto %in% c("1", "2", "3", "4", "5"))
+
+# Agregar al plot
+
+masadi <- ggplot() +
+  geom_sf(data = costa1, fill = "white") +
+  geom_sf(data = portug1, fill = "white") +
+  geom_sf(data = filter(zonapro1, ZONA %in% c("AND106",
+                                              "AND107")), 
+          aes(fill = ZONA)) +
+  geom_sf(data = resepe1 %>%
+            filter(Zona %in% c("Zona B")) %>%
+            mutate(Zona = "Reserva"),
+          aes(fill = Zona), alpha = 0.1) +
+  geom_sf(data = coord_filt)+
+  geom_sf(data = centroids_zona, shape = 21, fill = "black", size = 2, color = "black") +
+  geom_sf(data = centroids_reserva, shape = 21, fill = "black", size = 2, color = "black")+
+  scale_fill_viridis_d(option="H",
+                       alpha=.5)+
+  coord_sf() +
+  xlab(expression(paste(Longitude^o,~'O'))) +
+  ylab(expression(paste(Latitude^o,~'S')))+
+  ggrepel::geom_label_repel(
+    data = coord_filt,
+    aes(label = Punto, geometry = geometry),
+    stat = "sf_coordinates",
+    min.segment.length = ,
+    colour = "black",
+    size = 3,
+    segment.colour = "black",
+    box.padding = 0.9,
+    max.overlaps = 40) +
+  scale_fill_viridis_d(option = "F", alpha = .5, name = "") +
+  coord_sf() +
+  xlab(expression(paste(Longitude^o, ~'O'))) +
+  ylab(expression(paste(Latitude^o, ~'S'))) +
+  theme_few() +
+  xlim(-7.2,-6)+
+  ylim(36.6, 37.2)
+
+
+masadi
+
+
+```
+
+
+
+
+
+Mapa con puntos
+
+```{r warning=FALSE}
+maspu <- ggplot() +
+  geom_sf(data = costa1, fill="white") +
+  #geom_sf(data = resepe1, aes(col="blue",
+   #                            fill=NA)) +
+  geom_sf(data = zonapro1, aes(col="red",
+                               fill=NA)) +
+  geom_sf(data = coord)+
+  scale_fill_viridis_d(option="H",
+                       alpha=.5)+
+  coord_sf() +
+  xlab(expression(paste(Longitude^o,~'O'))) +
+  ylab(expression(paste(Latitude^o,~'S')))+
+  ggrepel::geom_label_repel(
+    data = coord,
+    aes(label = Punto, geometry = geometry),
+    stat = "sf_coordinates",
+    min.segment.length = ,
+    colour = "black",
+    size = 3,
+    segment.colour = "black",
+    box.padding = 0.9,
+    max.overlaps = 40) +
+  theme_few()+
+  theme(legend.position = "none")+
+  xlim(-7.6,-6.1)+
+  ylim(36.6, 37.4)
+maspu
+
+```
+
+Mapa test
+```{r}
+# Crea un mapa de Europa
+europe_map <- map_data("world",
+                       region = c("spain", 
+                                  "portugal"))
+
+# Visualiza el mapa de Europa
+eu <- ggplot() +
+  geom_polygon(data = europe_map, 
+               aes(x = long, 
+                   y = lat, 
+                   group = group), 
+               fill = "white", 
+               color = "black") +
+  coord_fixed(1.3) +  # Ajusta la relación de aspecto
+  theme_few()  # Estilo del gráfico
+
+```
