@@ -7,6 +7,7 @@ DATA_Old/*
 FORMATOS/*
 FIG/*
 AED_Biologico_files/*
-AED_Biologico.docx
+*.docx
 *.Rdata
 *.rds
+*.pdf
