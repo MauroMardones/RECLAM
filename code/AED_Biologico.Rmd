@@ -94,14 +94,14 @@ La Figura \@ref(fig:mapa) muestra la zona de estudio en la costa sur de España,
 
 ```{r eval=FALSE}
 coord_ch <- read_excel(here("DATA",
-                    "Bitacora_chirla_RECLAM.xlsx")) %>% 
+                    "Bitácora_chirla_RECLAM.xlsx")) %>% 
   dplyr::select(1, 2,3) %>% 
   rename(ZONA = Punto,
          Latitud =`Latitud inicio`,
          Longitud = `Longitud inicio`)
 
 coord_co <- read_excel(here("DATA",
-                    "Bitacora_coquina_RECLAM.xlsx")) %>% 
+                    "Bitácora_coquina_RECLAM.xlsx")) %>% 
   dplyr::select(c(2,4,5)) %>% 
   rename(ZONA = Réplica)
 
@@ -219,14 +219,20 @@ archivos <- list(
   noviembre = "DATA/Chirla 13_11_2024.xlsx",
   diciembre = "DATA/Chirla 10_12_2024.xlsx",
   enero = "DATA/Chirla 13_01_2025.xlsx",
-  febrero = "DATA/Chirla 10_02_2025.xlsx"
+  febrero = "DATA/Chirla 10_02_2025.xlsx",
+  marzo = "DATA/Chirla 07_04_2025 (MARZO).xlsx",
+  abril = "DATA/Chirla 23_04_2025.xlsx",
+  mayo = "DATA/Chirla 20_05_2025.xlsx",
+  junio = "DATA/Chirla 02_07_2025 (junio).xlsx"
+  #julio2 = "DATA/Chirla 25_07_2025.xlsx",
+  #agosto2 = "DATA/Chirla 09_08_2025.xlsx"
   # marzo hasta junio
 )
 # Leer cada archivo y almacenarlo en una lista
 datos_lista <- lapply(archivos, leer_y_combinar)
 # Unir todos los datos en un solo data frame, agregando la columna "mes"
 datos_totales <- bind_rows(datos_lista) %>%
-  mutate(especie = "chirla") %>% 
+  mutate(especie = "CH") %>% 
   rename(TALLA = LONG)
 ```
 
@@ -245,7 +251,13 @@ archivosco <- list(
   diciembre = "DATA/Coquina 18_12_2024.xlsx",
   enero = "DATA/Coquina 16_01_2025.xlsx",
   febrero = "DATA/Coquina 13_02_2025.xlsx",
-  agosto2 = "DATA/Coquina 26_08_2025.xlsx"
+  marzo = "DATA/Coquina 14_03_2025.xlsx",
+  abril = "DATA/Coquina 25_04_2025.xlsx",
+  mayo = "DATA/Coquina 27_05_2025.xlsx",
+  junio = "DATA/Coquina 26_06_2025.xlsx",
+  julio2 = "DATA/Coquina 24_07_2025.xlsx",
+  agosto2 = "DATA/Coquina 26_08_2025.xlsx",
+  septiembre2 = "DATA/Coquina 23_09_2025.xlsx"
   # marzo hasta junio
 )
 # Leer cada archivo y almacenarlo en una lista
@@ -253,7 +265,7 @@ datos_listaco <- lapply(archivosco,
                         leer_y_combinar)
 
 datos_totalesco <- bind_rows(datos_listaco)  %>%
-  mutate(especie = "coquina") %>% 
+  mutate(especie = "CO") %>% 
   rename(FECHA = Fecha,
          TALLA = Longitud,
          ZONA=Zona)
@@ -274,17 +286,31 @@ total_c <- bind_rows(datos_totales, datos_totalesco) %>%
     )
   ) %>% 
   rename(REPLICA = hoja)
-#saveRDS(total_c,  "Base_RECLAM_Tallas.rds")
+saveRDS(total_c,  "DATA/Base_RECLAM_Tallas_Cadiz.rds")
+write_csv(total_c, "DATA/Base_RECLAM_Tallas_Cadiz.csv")
 ```
+
+Cambio formato fechas
+
+```{r}
+total_c <- total_c %>%
+  mutate(FECHA = as.Date(FECHA, format = "%d/%m/%Y"),
+         ANO = year(FECHA),
+         MES = month(FECHA, label = TRUE, abbr = TRUE))
+```
+
+
 
 A continuación, se presenta de forma resumida la tipología del dato obtenido durante los primeros meses de muestreo. En la Figura \@ref(fig:regi), se presentan el número de individuos por especie, estación de muestreo y réplica, para cada mes de muestreo. Estos datos también se muestran desglosados en la Tabla 1 agregados por estación.
 
 
+
+
 ```{r regi, fig.cap="Registros totales por especie, estación de muestreo y réplica, para cada mes de muestreo"}
 total_c %>%
-  group_by(hoja, especie, MES, ANO) %>%
+  group_by(REPLICA, especie, MES, ANO) %>%
   summarise(n = n(), .groups = "drop") %>%
-  ggplot(aes(x = hoja, y = n, fill = as.factor(especie))) +
+  ggplot(aes(x = REPLICA, y = n, fill = as.factor(especie))) +
   geom_col(position = "dodge",
            width = 0.5) +
   scale_fill_viridis_d(option="H")+
@@ -406,17 +432,61 @@ ggarrange(chhist,
 ### BItacora
 
 ```{r}
-library(readxl)
 Bitácora_chirla<- read_excel("DATA/Bitácora_chirla_RECLAM.xlsx")
-Bitácora_chirla_RECLAM
-
 
 # lo mismo para coquina
 Bitácora_coquina<- read_excel("DATA/Bitácora_coquina_RECLAM.xlsx")
 
+# ---- CHIRLA (preprocesamiento estructural) ----
+chirla_std <- Bitácora_chirla %>%
+  mutate(
+    Réplica = as.character(Punto),
+    Punto = str_extract(Réplica, "^[0-9]+")
+  ) %>%
+  transmute(
+    Especie = "CH",
+    Punto = as.character(Punto),
+    `Réplica` = as.character(Réplica),
+    Mariscador = NA_character_,
+    Latitud = as.numeric(`Latitud inicio`),
+    Longitud = as.numeric(`Longitud inicio`),
+    Track = as.character(Track),
+    Fecha = as.POSIXct(Fecha),
+    `Temperatura agua` = NA_character_,
+    `Tiempo de pesca(minutos)` = as.numeric(difftime(`Hora Fin`, `Hora Inicio`, units = "mins")),
+    `Distancia (m)` = as.numeric(`Recorrido(m)`),
+    `Hora de llegada` = `Hora Fin`,
+    Observaciones = as.character(Observaciones)
+  )
+
+# ---- COQUINA ----
+coquina_std <- Bitácora_coquina %>%
+  transmute(
+    Especie = "CO",
+    Punto = as.character(Punto),
+    `Réplica` = as.character(`Réplica`),
+    Mariscador = as.character(Mariscador),
+    Latitud = as.numeric(Latitud),
+    Longitud = as.numeric(Longitud),
+    Track = as.character(Track),
+    Fecha = as.POSIXct(Fecha),
+    `Temperatura agua` = as.character(`Temperatura agua`),
+    `Tiempo de pesca(minutos)` = as.numeric(`Tiempo de pesca(minutos)`),
+    `Distancia (m)` = as.numeric(`Distancia (m)`),
+    `Hora de llegada` = `Hora de llegada`,
+    Observaciones = as.character(Observaciones)
+  )
+
+# ---- UNIÓN FINAL ----
+bitacora_total <- bind_rows(chirla_std, coquina_std)
+#saveRDS(bitacora_total, "DATA/Base_RECLAM_Bitacora_Cadiz.rds")
+#write_csv(bitacora_total, "DATA/Base_RECLAM_Bitacora_Cadiz.csv")
+```
+
+
+```{r}
 Pesos_Chirla_RECLAM <- read_excel("DATA/Pesos Chirla_RECLAM.xlsx")
 Pesos_coquina_RECLAM <- read_excel("DATA/Pesos Coquina_RECLAM.xlsx")
-
 ```
 
 
@@ -430,7 +500,7 @@ Generar relaciones Alómetricas permitirá estimar el peso esperado de cada espe
 tp_coquina <- read_excel(here("DATA_Old",
                               "Muestreo 200 ejemplares.xlsx"), 
     sheet = "coquina") %>% 
-  mutate(specie = "CQ")
+  mutate(specie = "CO")
 tp_chirla <- read_excel(here("DATA_Old",
                               "Muestreo 200 ejemplares.xlsx"), 
     sheet = "chirla") %>%
