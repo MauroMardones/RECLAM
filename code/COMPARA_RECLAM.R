@@ -6,7 +6,7 @@
 #
 # Analyses:
 #   0.  Setup & helpers
-#   1.  Data loading (size, L-W, CPUE, catch)
+#   1.  Data loading (size, L-W, CPUE, catch) — coquina only (Especie == "CO")
 #   2.  Size-frequency distributions (LFQ)
 #   3.  von Bertalanffy growth (ELEFAN_GA + NLS + comparison)
 #   4.  Growth performance index (Φ')
@@ -16,9 +16,10 @@
 #   8.  Population indicators: density, biomass, CPUE, recruitment index
 #   9.  Statistical comparisons (Wilcoxon, Cohen's d, Kruskal-Wallis)
 #  10.  Linear mixed-effects models (LMM)
-#  11.  Environmental drivers — SST anomaly, MHW, GAM/GLM
-#  12.  Publication-ready composite figures (patchwork)
-#  13.  Summary tables (flextable)
+#  11.  Publication-ready composite figures (patchwork)
+#  12.  Summary tables (flextable)
+#
+# NOTE: Environmental analysis moved to ENV_BIO_Correlation.R
 #
 # Author  : Mauricio Mardones / Alberto García
 # Updated : 2025-04
@@ -55,9 +56,6 @@ suppressPackageStartupMessages({
   library(gratia)        # GAM diagnostics & draws
   library(broom.mixed)   # tidy() for nlme / lme4 objects
   library(effsize)       # Cohen's d
-
-  # Environmental
-  library(heatwaveR)     # Marine heatwave detection (Hobday et al. 2016)
 
   # Visualization
   library(ggridges)      # Ridge plots
@@ -124,6 +122,7 @@ tallav <- read_excel(archivo_valencia, sheet = "tallas") |>
 
 tallas <- bind_rows(tallac, tallav) |>
   filter(!is.na(TALLA), TALLA > 0) |>
+  filter(tolower(especie) == "co") |>                 # coquina only
   mutate(
     year      = year(FECHA),
     month     = month(FECHA),
@@ -134,8 +133,10 @@ tallas <- bind_rows(tallac, tallav) |>
 ## 1.2 Length-weight (talla_peso) ----------------------------------------------
 
 lpesoc <- read_excel(archivo_cadiz,    sheet = "talla_peso") |>
+  filter(tolower(Especie) == "co") |>                 # coquina only
   mutate(area = "Cadiz")
 lpesov <- read_excel(archivo_valencia, sheet = "talla_peso") |>
+  filter(tolower(Especie) == "co") |>                 # coquina only
   mutate(area = "Valencia")
 
 lp <- bind_rows(lpesoc, lpesov) |>
@@ -148,7 +149,12 @@ harmonise_cap <- function(df) {
   df |>
     mutate(
       across(any_of(c("peso_total_con_cascajo_g",
-                       "peso_muestreado_total_con_cascajo_g")), as.numeric),
+                       "peso_muestreado_total_con_cascajo_g",
+                       "peso_total_sin_cascajo_g",
+                       "peso_muestra_sin_cascajo_g")), as.numeric),
+      # Cádiz registra con cascajo; Valencia registra sin cascajo
+      peso_total_con_cascajo_g = coalesce(peso_total_con_cascajo_g,
+                                           peso_total_sin_cascajo_g),
       observaciones = as.character(observaciones),
       fecha         = as.Date(fecha)
     )
@@ -161,22 +167,12 @@ cap_coq_v <- read_excel(archivo_valencia, sheet = "Captura_coquina") |>
 
 cap_coq <- bind_rows(cap_coq_c, cap_coq_v) |>
   dplyr::mutate(
-    cpue_g_min = peso_total_con_cascajo_g / 1,
-    year       = year(fecha),
-    month      = month(fecha)
+    cpue_kg_h = (peso_total_con_cascajo_g / 1000) /
+                (tiempo_de_pesca_minutos  / 60),   # kg · h⁻¹
+    year  = year(fecha),
+    month = month(fecha)
   )
 
-## 1.4 Environmental SST (optional — add your CSV) -----------------------------
-# Expected columns:  date (Date), sst (°C), area ("Cadiz" | "Valencia")
-
-sst_path <- here("DATA", "SST_GoC_GoV.csv")
-sst <- if (file.exists(sst_path)) {
-  read_csv(sst_path, show_col_types = FALSE) |>
-    mutate(date = as.Date(date))
-} else {
-  message("[INFO] SST file not found — Section 11 (environmental drivers) skipped.")
-  NULL
-}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -187,9 +183,9 @@ sst <- if (file.exists(sst_path)) {
 
 build_lfq <- function(df) {
   freq <- df |>
-    filter(!is.na(TALLA)) |>
-    mutate(cls = floor(TALLA)) |>
-    group_by(year, month, cls) |>
+    dplyr::filter(!is.na(TALLA)) |>
+    dplyr::mutate(cls = floor(TALLA)) |>
+    dplyr::group_by(year, month, cls) |>
     summarise(N = n(), .groups = "drop")
 
   wide <- freq |>
@@ -205,8 +201,9 @@ build_lfq <- function(df) {
   list(dates = fechas, midLengths = clases, catch = t(mat))
 }
 
-lfq_c <- lfqRestructure(build_lfq(tallac), MA = 5)
-lfq_v <- lfqRestructure(build_lfq(tallav), MA = 5)
+# Esto:
+lfq_c <- lfqRestructure(build_lfq(tallas |> filter(Area == "Cadiz")),   MA = 5)
+lfq_v <- lfqRestructure(build_lfq(tallas |> filter(Area == "Valencia")), MA = 5)
 
 ## 2.2 Monthly LFQ plots (Figure 2 in paper) -----------------------------------
 
@@ -215,7 +212,7 @@ ni_plot <- tallas |>
   summarise(Ni = n(), .groups = "drop") |>
   mutate(
     fecha_label = paste(year, sprintf("%02d", month), sep = "-"),
-    is_recruit  = talla_cls <= 8
+    is_recruit  = talla_cls <= 10.8
   )
 
 make_lfq_plot <- function(area_nm, col) {
@@ -240,12 +237,51 @@ fig2b <- make_lfq_plot("Valencia", pal_area["Valencia"])
 ggsave(here("FIG", "Fig2a_LFQ_Cadiz.jpeg"),   fig2a, width = 14, height = 10, dpi = 300)
 ggsave(here("FIG", "Fig2b_LFQ_Valencia.jpeg"), fig2b, width = 14, height = 10, dpi = 300)
 
+# Otra 
+
+tallas2 <- tallas |>
+  mutate(fecha_label = paste(year, sprintf("%02d", month), sep = "-"))
+# Calcular densidad por grupo
+dens_data <- tallas2 |>
+  mutate(fecha_label = paste(year, sprintf("%02d", month), sep = "-")) |>
+  group_by(Area, fecha_label) |>
+  summarise(
+    d = list(density(TALLA, n = 512)),
+    .groups = "drop"
+  ) |>
+  mutate(x = map(d, "x"),
+         y = map(d, "y")) |>
+  dplyr::select(-d) |>
+  unnest(c(x, y)) |>
+  mutate(size_class = if_else(x <= 10.8, "Recruit", "Adult"))
+
+
+fig2_dens <- ggplot(dens_data, aes(x = x, y = y, colour = Area, fill = Area)) +
+  geom_area(aes(alpha = size_class), position = "identity") +
+  geom_line(linewidth = 0.7) +
+  geom_vline(xintercept = 10.8, linetype = "dashed",
+             colour = "grey30", linewidth = 0.5) +
+  facet_wrap(~ fecha_label, ncol = 2, scales = "free_y") +
+  scale_colour_manual(values = pal_area) +
+  scale_fill_manual(values   = pal_area) +
+  scale_alpha_manual(values  = c("Recruit" = 0.6, "Adult" = 0.15),
+                     labels  = c("Recruit" = "\u226410.8 mm", "Adult" = "Adult")) +
+  labs(x = "Shell length (mm)", y = "Density",
+       colour = "Region", fill = "Region", alpha = NULL,
+       title = bquote(italic("D. trunculus") ~
+                        "\u2014 Length-frequency distributions")) +
+  theme_reclam
+
+ggsave(here("FIG", "Fig2_LFQ_density.jpeg"),
+       fig2_dens, width = 14, height = 10, dpi = 300)
+
+
 ## 2.3 LFQ heatmap (month × size class) ----------------------------------------
 
 fig2c <- ggplot(ni_plot, aes(x = talla_cls, y = factor(month), fill = Ni)) +
   geom_tile(colour = "white", linewidth = 0.2) +
   facet_wrap(~ Area) +
-  scale_fill_viridis_c(option = "H", name = expression(N[i]),
+  scale_fill_viridis_c(option = "A", name = expression(N[i]),
                        trans = "sqrt", na.value = "grey90") +
   scale_y_discrete(labels = month.abb) +
   labs(x = "Shell length (mm)", y = "Month") +
@@ -284,7 +320,13 @@ run_elefan <- function(lfq_obj, label,
 }
 
 fit_eg_c <- run_elefan(lfq_c, "Cadiz")
+# [ELEFAN_GA] Cadiz ...
+# Genetic algorithm is running. This might take some time.
+# Linf=23.42  K=2.285  Rn=0.1799
 fit_eg_v <- run_elefan(lfq_v, "Valencia")
+# [ELEFAN_GA] Valencia ...
+# Genetic algorithm is running. This might take some time.
+# Linf=21.65  K=1.017  Rn=0.1578
 
 ## 3.2 NLS on mean monthly length (independent validation) --------------------
 
@@ -477,23 +519,23 @@ write_csv(tab_mort, here("RESULTS", "Table2_Mortality.csv"))
 ## 6.1 Log-linear regression per region ----------------------------------------
 
 lw_fit <- function(df, area_label) {
-  fit  <- lm(log(PESO) ~ log(TALLA), data = df)
+  fit  <- lm(log(PESO) ~ log(LONGITUD), data = df)
   ci_b <- confint(fit)[2, ]
   tibble(
-    area    = area_label,
-    n       = nrow(df),
-    a       = exp(coef(fit)[1]),
-    b       = coef(fit)[2],
-    R2      = summary(fit)$r.squared,
-    b_CI_lo = ci_b[1],
-    b_CI_hi = ci_b[2],
-    isometric = between(3, ci_b[1], ci_b[2])  # H0: b=3 within 95% CI?
+    area      = area_label,
+    n         = nrow(df),
+    a         = exp(coef(fit)[1]),
+    b         = coef(fit)[2],
+    R2        = summary(fit)$r.squared,
+    b_CI_lo   = ci_b[1],
+    b_CI_hi   = ci_b[2],
+    isometric = between(3, ci_b[1], ci_b[2])
   )
 }
 
 tab_lw <- bind_rows(
-  lw_fit(lp |> filter(area == "Cadiz"),   "Cadiz"),
-  lw_fit(lp |> filter(area == "Valencia"), "Valencia")
+  lw_fit(lp |> filter(AREA == "Cadiz"),    "Cadiz"),
+  lw_fit(lp |> filter(AREA == "Valencia"), "Valencia")
 ) |>
   mutate(across(where(is.numeric), \(x) round(x, 4)))
 
@@ -502,18 +544,26 @@ write_csv(tab_lw, here("RESULTS", "Table_LW.csv"))
 
 ## 6.2 Plot --------------------------------------------------------------------
 
-fig_lw <- ggplot(lp, aes(x = TALLA, y = PESO, colour = area)) +
+# Predicted curves from fitted a, b (avoids unstable geom_smooth + nls)
+lw_curves <- tab_lw |>
+  rowwise() |>
+  reframe(
+    LONGITUD = exp(seq(log(min(lp$LONGITUD, na.rm = TRUE)),
+                       log(max(lp$LONGITUD, na.rm = TRUE)),
+                       length.out = 200)),
+    PESO     = a * LONGITUD^b,
+    AREA     = area
+  )
+
+fig_lw <- ggplot(lp, aes(x = LONGITUD, y = PESO, colour = AREA)) +
   geom_point(alpha = 0.3, size = 1.2) +
-  geom_smooth(method = "nls",
-              formula = y ~ a * x^b,
-              method.args = list(start = list(a = 0.0005, b = 3)),
-              se = FALSE, linewidth = 1) +
+  geom_line(data = lw_curves, linewidth = 1) +
   scale_colour_manual(values = pal_area) +
   scale_x_log10() + scale_y_log10() +
   annotation_logticks(sides = "bl", size = 0.3) +
   labs(x = "Shell length (mm)", y = "Wet weight (g)",
        colour = "Region",
-       caption = "log-log scale; curve fitted by NLS",
+       caption = "log-log scale; curve fitted by OLS on log-transformed data",
        title = expression("Length\u2013weight relationship \u2014 " * italic("D. trunculus"))) +
   theme_reclam
 
@@ -591,7 +641,7 @@ recr_idx <- tallas |>
   group_by(Area, FECHA, year, month) |>
   summarise(
     N_total   = n(),
-    N_recruit = sum(TALLA <= 8, na.rm = TRUE),
+    N_recruit = sum(TALLA <= 25, na.rm = TRUE),
     RI        = N_recruit / N_total,
     .groups   = "drop"
   )
@@ -604,18 +654,19 @@ fig8a <- ggplot(recr_idx, aes(x = FECHA, y = RI * 100, colour = Area, fill = Are
   scale_x_date(date_breaks = "2 months", date_labels = "%b-%y") +
   labs(x = NULL, y = "Recruitment index (%)",
        colour = "Region", fill = "Region",
-       title = "Proportion of recruits (SL \u2264 8 mm)") +
+       title = "Proportion of recruits (SL \u2264 25 mm)") +
   theme_reclam +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
 ## 8.2 CPUE monthly time series ------------------------------------------------
 
 cpue_monthly <- cap_coq |>
-  filter(!is.na(cpue_g_min), cpue_g_min >= 0) |>
-  group_by(area, year, month, fecha) |>
+  filter(!is.na(cpue_kg_h), cpue_kg_h >= 0) |>
+  group_by(area, year, month) |>
   summarise(
-    cpue_mean = mean(cpue_g_min, na.rm = TRUE),
-    cpue_se   = sd(cpue_g_min,   na.rm = TRUE) / sqrt(n()),
+    fecha     = first(fecha),
+    cpue_mean = mean(cpue_kg_h, na.rm = TRUE),
+    cpue_se   = sd(cpue_kg_h,   na.rm = TRUE) / sqrt(n()),
     n         = n(),
     .groups   = "drop"
   )
@@ -628,7 +679,7 @@ fig8b <- ggplot(cpue_monthly, aes(x = fecha, y = cpue_mean,
   scale_colour_manual(values = pal_area) +
   scale_fill_manual(values   = pal_area) +
   scale_x_date(date_breaks = "2 months", date_labels = "%b-%y") +
-  labs(x = NULL, y = expression("CPUE (g\u00b7min"^{-1}*")"),
+  labs(x = NULL, y = expression("CPUE (kg" %.% "h"^{-1}*")"),
        colour = "Region", fill = "Region",
        title = "Catch-per-unit-effort") +
   theme_reclam +
@@ -858,130 +909,8 @@ fig_diag <- ggplot(diag_df, aes(x = fitted, y = resid_std, colour = Area)) +
   theme_reclam
 
 ggsave(here("FIG", "FigS1_LMM_diag.jpeg"), fig_diag, width = 7, height = 5, dpi = 300)
-
-
 # ─────────────────────────────────────────────────────────────────────────────
-# 11. ENVIRONMENTAL DRIVERS — SST, MHW, GAM
-# ─────────────────────────────────────────────────────────────────────────────
-# Requires: SST_GoC_GoV.csv  in DATA/
-# (date, sst, area)
-
-if (!is.null(sst)) {
-
-  ## 11.1 Marine heatwave detection — heatwaveR --------------------------------
-
-  detect_mhw <- function(sst_df, area_nm) {
-    ts_in <- sst_df |> filter(area == area_nm) |>
-      arrange(date) |> dplyr::select(t = date, temp = sst)
-    clim  <- ts2clm(ts_in, climatologyPeriod = c(
-      format(min(ts_in$t), "%Y-%m-%d"),
-      format(max(ts_in$t), "%Y-%m-%d")
-    ))
-    detect_event(clim)
-  }
-
-  mhw_c <- detect_mhw(sst, "Cadiz")
-  mhw_v <- detect_mhw(sst, "Valencia")
-
-  mhw_summary <- bind_rows(
-    mhw_c$event |> mutate(area = "Cadiz"),
-    mhw_v$event |> mutate(area = "Valencia")
-  ) |>
-    group_by(area) |>
-    summarise(
-      n_events         = n(),
-      mean_duration_d  = round(mean(duration), 1),
-      max_intensity_dC = round(max(intensity_max), 2),
-      cum_MHW_days     = sum(duration),
-      .groups          = "drop"
-    )
-
-  print(mhw_summary)
-  write_csv(mhw_summary, here("RESULTS", "Table_MHW.csv"))
-
-  ## 11.2 SST anomaly time series -----------------------------------------------
-
-  sst_anom <- sst |>
-    group_by(area) |>
-    mutate(
-      doy     = yday(date),
-      clim    = ave(sst, doy, FUN = mean),
-      anomaly = sst - clim
-    ) |> ungroup()
-
-  fig11a <- ggplot(sst_anom, aes(x = date, y = sst, colour = area)) +
-    geom_line(linewidth = 0.5, alpha = 0.7) +
-    geom_smooth(method = "loess", span = 0.15, se = FALSE, linewidth = 1) +
-    scale_colour_manual(values = pal_area) +
-    labs(x = NULL, y = "SST (\u00b0C)", colour = "Region",
-         title = "Sea surface temperature") +
-    theme_reclam
-
-  fig11b <- ggplot(sst_anom, aes(x = date, y = anomaly, fill = anomaly > 0)) +
-    geom_col(width = 1) +
-    facet_wrap(~ area, ncol = 1) +
-    scale_fill_manual(values = c("TRUE" = "#D94F00", "FALSE" = "#1B7FC4"),
-                      guide = "none") +
-    geom_hline(yintercept = 0, linewidth = 0.4) +
-    labs(x = NULL, y = "SST anomaly (\u00b0C)", title = "SST anomaly") +
-    theme_reclam
-
-  fig11 <- (fig11a / fig11b) +
-    plot_annotation(tag_levels = "a",
-                    title = "Environmental time series \u2014 GoC vs. GoV")
-  ggsave(here("FIG", "Fig5_SST_MHW.jpeg"), fig11, width = 10, height = 8, dpi = 300)
-
-  ## 11.3 GAM: CPUE ~ Area + s(SST_anom) + s(month, bs="cc") + s(year) --------
-
-  sst_monthly <- sst_anom |>
-    mutate(year = year(date), month = month(date)) |>
-    group_by(area, year, month) |>
-    summarise(sst_mean  = mean(sst,     na.rm = TRUE),
-              sst_anom  = mean(anomaly, na.rm = TRUE),
-              .groups   = "drop")
-
-  cpue_env <- cpue_monthly |>
-    left_join(sst_monthly, by = c("area", "year", "month")) |>
-    filter(!is.na(sst_mean), !is.na(cpue_mean), cpue_mean > 0)
-
-  gam_cpue <- gam(
-    log(cpue_mean) ~
-      area +
-      s(sst_anom, k = 5, by = area) +
-      s(month,    k = 6, bs = "cc") +
-      s(year,     k = 4),
-    data   = cpue_env,
-    method = "REML"
-  )
-
-  cat("\n--- GAM summary ---\n")
-  print(summary(gam_cpue))
-
-  write_csv(
-    as.data.frame(summary(gam_cpue)$p.table),
-    here("RESULTS", "Table5_GAM_parametric.csv")
-  )
-  write_csv(
-    as.data.frame(summary(gam_cpue)$s.table),
-    here("RESULTS", "Table5_GAM_smooth.csv")
-  )
-
-  # Partial effects (Figure 6)
-  fig6_partials <- gratia::draw(gam_cpue, residuals = TRUE)
-  ggsave(here("FIG", "Fig6_GAM_partials.jpeg"),
-         fig6_partials, width = 10, height = 6, dpi = 300)
-
-  # Diagnostics
-  ggsave(here("FIG", "FigS2_GAM_diag.jpeg"),
-         gratia::appraise(gam_cpue), width = 8, height = 6, dpi = 300)
-
-} else {
-  message("[INFO] Sections 11 skipped — SST file not found.")
-}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 12. PUBLICATION-READY COMPOSITE FIGURES
+# 11. PUBLICATION-READY COMPOSITE FIGURES
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Figure 2 — LFQ panel
@@ -995,7 +924,7 @@ ggsave(here("FIG", "Fig2_LFQ_panel.jpeg"), fig2_panel,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 13. MASTER PARAMETER TABLE (flextable)
+# 12. MASTER PARAMETER TABLE (flextable)
 # ─────────────────────────────────────────────────────────────────────────────
 
 tab_master <- tab_vbgf |>
