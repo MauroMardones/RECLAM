@@ -88,6 +88,9 @@ pal_area <- c(Cadiz = "#1B7FC4", Valencia = "#D94F00")
 dir.create(here("FIG"),     showWarnings = FALSE)
 dir.create(here("RESULTS"), showWarnings = FALSE)
 
+## 0.5 Figure quality (set 300 for final publication) -------------------------
+fig_dpi <- 150
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. DATA LOADING
@@ -107,28 +110,44 @@ tallac <- read_excel(archivo_cadiz, sheet = "tallas") |>
   dplyr::select(-any_of("ZONA")) |>
   filter(!is.na(TALLA)) |>
   mutate(
-    TALLA = as.numeric(TALLA),
-    PUNTO = as.character(PUNTO),
-    FECHA = as.Date(FECHA, origin = "1899-12-30"),
-    Area  = "Cadiz"
+    TALLA       = as.numeric(TALLA),
+    PUNTO       = as.character(PUNTO),
+    FECHA       = as.Date(FECHA, origin = "1899-12-30"),
+    Area        = "Cadiz",
+    especie     = tolower(especie),                    # normalizar a minúsculas
+    # Cádiz: REPLICA contiene "P" → Poblacional, "C" → Comercial
+    tipo_rastro = if_else(grepl("P", REPLICA, ignore.case = FALSE),
+                          "Poblacional", "Comercial")
   )
 
 tallav <- read_excel(archivo_valencia, sheet = "tallas") |>
+  filter(!is.na(TALLA)) |>
   mutate(
-    TALLA = as.numeric(TALLA),
-    FECHA = as.Date(FECHA),
-    Area  = "Valencia"
+    TALLA       = as.numeric(TALLA),
+    FECHA       = as.Date(FECHA),
+    Area        = "Valencia",
+    especie     = tolower(especie),                    # normalizar a minúsculas
+    # Valencia: REPLICA contiene "NC" → Poblacional, "C" (sin NC) → Comercial
+    tipo_rastro = if_else(grepl("NC", REPLICA, ignore.case = FALSE),
+                          "Poblacional", "Comercial")
   )
 
 tallas <- bind_rows(tallac, tallav) |>
-  filter(!is.na(TALLA), TALLA > 0) |>
-  filter(tolower(especie) == "co") |>                 # coquina only
+  filter(!is.na(TALLA), TALLA > 0, !is.na(especie)) |>
   mutate(
-    year      = year(FECHA),
-    month     = month(FECHA),
-    talla_cls = floor(TALLA),                         # 1-mm class
-    size_class = ifelse(TALLA <= 8, "Recruit", "Adult")
+    year        = year(FECHA),
+    month       = month(FECHA),
+    talla_cls   = floor(TALLA),                       # 1-mm class
+    size_class  = ifelse(TALLA <= 8, "Recruit", "Adult"),
+    tipo_rastro = factor(tipo_rastro, levels = c("Poblacional", "Comercial")),
+    # Unificar códigos de especie: "chs" → "ch" (chirla), "co" = coquina
+    especie     = recode(especie, "chs" = "ch"),
+    especie     = factor(especie, levels = c("co", "ch"),
+                         labels = c("co" = "Coquina", "ch" = "Chirla"))
   )
+
+# Subconjunto coquina — usado en análisis de crecimiento y mortalidad
+tallas_co <- tallas |> filter(especie == "Coquina")
 
 ## 1.2 Length-weight (talla_peso) ----------------------------------------------
 
@@ -201,96 +220,116 @@ build_lfq <- function(df) {
   list(dates = fechas, midLengths = clases, catch = t(mat))
 }
 
-# Esto:
-lfq_c <- lfqRestructure(build_lfq(tallas |> filter(Area == "Cadiz")),   MA = 5)
-lfq_v <- lfqRestructure(build_lfq(tallas |> filter(Area == "Valencia")), MA = 5)
+# ELEFAN usa solo coquina
+lfq_c <- lfqRestructure(build_lfq(tallas_co |> filter(Area == "Cadiz")),    MA = 5)
+lfq_v <- lfqRestructure(build_lfq(tallas_co |> filter(Area == "Valencia")), MA = 5)
 
-## 2.2 Monthly LFQ plots (Figure 2 in paper) -----------------------------------
+## 2.2 Base data — LFQ por especie x area x rastro ----------------------------
 
 ni_plot <- tallas |>
-  group_by(Area, year, month, talla_cls) |>
+  group_by(especie, Area, tipo_rastro, year, month, talla_cls) |>
   summarise(Ni = n(), .groups = "drop") |>
   mutate(
     fecha_label = paste(year, sprintf("%02d", month), sep = "-"),
     is_recruit  = talla_cls <= 10.8
   )
 
-make_lfq_plot <- function(area_nm, col) {
-  ggplot(ni_plot |> filter(Area == area_nm),
-         aes(x = talla_cls, y = Ni, fill = is_recruit)) +
+## 2.3 LFQ barras por especie x area x rastro ----------------------------------
+
+make_lfq_plot <- function(sp, area_nm, rastro_nm, col) {
+  df <- ni_plot |>
+    filter(especie == sp, Area == area_nm, tipo_rastro == rastro_nm)
+  if (nrow(df) == 0) return(NULL)
+  ggplot(df, aes(x = talla_cls, y = Ni, fill = is_recruit)) +
     geom_col(width = 0.9) +
+    geom_vline(xintercept = 25, linetype = "dashed",
+               colour = "red", linewidth = 0.6) +
     facet_wrap(~ fecha_label, ncol = 4, scales = "free_y") +
     scale_fill_manual(
       values = c("TRUE" = "#FFB703", "FALSE" = col),
-      labels = c("TRUE" = "Recruit (\u22648 mm)", "FALSE" = "Adult")
+      labels = c("TRUE" = "Recruit (≤10.8 mm)", "FALSE" = "Adult")
     ) +
     labs(
-      title = bquote(italic("D. trunculus") ~ "\u2014" ~ .(area_nm)),
+      title = bquote(.(toupper(sp)) ~ "—" ~ .(area_nm) ~ "|" ~ .(rastro_nm)),
       x = "Shell length (mm)", y = expression(N[i]), fill = NULL
     ) +
     theme_reclam
 }
 
-fig2a <- make_lfq_plot("Cadiz",   pal_area["Cadiz"])
-fig2b <- make_lfq_plot("Valencia", pal_area["Valencia"])
+# Generar una figura por cada combinación especie x area x rastro
+combos <- tallas |>
+  distinct(especie, Area, tipo_rastro) |>
+  arrange(especie, Area, tipo_rastro)
 
-ggsave(here("FIG", "Fig2a_LFQ_Cadiz.jpeg"),   fig2a, width = 14, height = 10, dpi = 300)
-ggsave(here("FIG", "Fig2b_LFQ_Valencia.jpeg"), fig2b, width = 14, height = 10, dpi = 300)
+walk(seq_len(nrow(combos)), function(i) {
+  sp  <- as.character(combos$especie[i])
+  ar  <- combos$Area[i]
+  ras <- as.character(combos$tipo_rastro[i])
+  col <- pal_area[ar]
+  p   <- make_lfq_plot(sp, ar, ras, col)
+  if (!is.null(p)) {
+    fname <- here("FIG", sprintf("Fig2_LFQ_%s_%s_%s.jpeg", sp, ar, ras))
+    ggsave(fname, p, width = 14, height = 10, dpi = fig_dpi)
+  }
+})
 
-# Otra 
+## 2.4 LFQ densidad por especie x area x rastro --------------------------------
 
-tallas2 <- tallas |>
-  mutate(fecha_label = paste(year, sprintf("%02d", month), sep = "-"))
-# Calcular densidad por grupo
-dens_data <- tallas2 |>
+dens_data <- tallas |>
   mutate(fecha_label = paste(year, sprintf("%02d", month), sep = "-")) |>
-  group_by(Area, fecha_label) |>
+  group_by(especie, Area, tipo_rastro, fecha_label) |>
+  filter(n() >= 5) |>
   summarise(
     d = list(density(TALLA, n = 512)),
     .groups = "drop"
   ) |>
-  mutate(x = map(d, "x"),
-         y = map(d, "y")) |>
+  mutate(x = map(d, "x"), y = map(d, "y")) |>
   dplyr::select(-d) |>
   unnest(c(x, y)) |>
   mutate(size_class = if_else(x <= 10.8, "Recruit", "Adult"))
 
+# Un plot de densidad por especie (facet rastro x fecha)
+walk(levels(tallas$especie), function(sp) {
+  df <- dens_data |> filter(especie == sp)
+  if (nrow(df) == 0) return(invisible(NULL))
+  p <- ggplot(df, aes(x = x, y = y, colour = Area, fill = Area)) +
+    geom_area(aes(alpha = size_class), position = "identity") +
+    geom_line(linewidth = 0.7) +
+    geom_vline(xintercept = 10.8, linetype = "dashed",
+               colour = "grey30", linewidth = 0.5) +
+    facet_grid(tipo_rastro ~ fecha_label, scales = "free_y") +
+    scale_colour_manual(values = pal_area) +
+    scale_fill_manual(values   = pal_area) +
+    scale_alpha_manual(values  = c("Recruit" = 0.6, "Adult" = 0.15),
+                       labels  = c("Recruit" = "≤10.8 mm", "Adult" = "Adult")) +
+    labs(x = "Shell length (mm)", y = "Density",
+         colour = "Region", fill = "Region", alpha = NULL,
+         title = paste0(toupper(sp), " — Length-frequency by rastro type")) +
+    theme_reclam +
+    theme(strip.text.x = element_text(size = 7),
+          axis.text.x  = element_text(angle = 45, hjust = 1, size = 6))
+  ggsave(here("FIG", sprintf("Fig2_LFQ_density_%s.jpeg", sp)),
+         p, width = 18, height = 8, dpi = fig_dpi)
+})
 
-fig2_dens <- ggplot(dens_data, aes(x = x, y = y, colour = Area, fill = Area)) +
-  geom_area(aes(alpha = size_class), position = "identity") +
-  geom_line(linewidth = 0.7) +
-  geom_vline(xintercept = 10.8, linetype = "dashed",
-             colour = "grey30", linewidth = 0.5) +
-  facet_wrap(~ fecha_label, ncol = 2, scales = "free_y") +
-  scale_colour_manual(values = pal_area) +
-  scale_fill_manual(values   = pal_area) +
-  scale_alpha_manual(values  = c("Recruit" = 0.6, "Adult" = 0.15),
-                     labels  = c("Recruit" = "\u226410.8 mm", "Adult" = "Adult")) +
-  labs(x = "Shell length (mm)", y = "Density",
-       colour = "Region", fill = "Region", alpha = NULL,
-       title = bquote(italic("D. trunculus") ~
-                        "\u2014 Length-frequency distributions")) +
-  theme_reclam
+## 2.5 LFQ heatmap por especie x rastro x area ---------------------------------
 
-ggsave(here("FIG", "Fig2_LFQ_density.jpeg"),
-       fig2_dens, width = 14, height = 10, dpi = 300)
+walk(levels(tallas$especie), function(sp) {
+  df <- ni_plot |> filter(especie == sp)
+  if (nrow(df) == 0) return(invisible(NULL))
+  p <- ggplot(df, aes(x = talla_cls, y = factor(month), fill = Ni)) +
+    geom_tile(colour = "white", linewidth = 0.2) +
+    facet_grid(tipo_rastro ~ Area) +
+    scale_fill_viridis_c(option = "A", name = expression(N[i]),
+                         trans = "sqrt", na.value = "grey90") +
+    scale_y_discrete(labels = month.abb) +
+    labs(x = "Shell length (mm)", y = "Month",
+         title = paste0(toupper(sp), " — LFQ heatmap")) +
+    theme_reclam + theme(legend.position = "right")
+  ggsave(here("FIG", sprintf("Fig2c_LFQ_heatmap_%s.jpeg", sp)),
+         p, width = 12, height = 8, dpi = fig_dpi)
+})
 
-
-## 2.3 LFQ heatmap (month × size class) ----------------------------------------
-
-fig2c <- ggplot(ni_plot, aes(x = talla_cls, y = factor(month), fill = Ni)) +
-  geom_tile(colour = "white", linewidth = 0.2) +
-  facet_wrap(~ Area) +
-  scale_fill_viridis_c(option = "A", name = expression(N[i]),
-                       trans = "sqrt", na.value = "grey90") +
-  scale_y_discrete(labels = month.abb) +
-  labs(x = "Shell length (mm)", y = "Month") +
-  theme_reclam + theme(legend.position = "right")
-
-ggsave(here("FIG", "Fig2c_LFQ_heatmap.jpeg"), fig2c, width = 10, height = 6, dpi = 300)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # 3. VON BERTALANFFY GROWTH PARAMETERS
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -330,7 +369,7 @@ fit_eg_v <- run_elefan(lfq_v, "Valencia")
 
 ## 3.2 NLS on mean monthly length (independent validation) --------------------
 
-mean_monthly <- tallas |>
+mean_monthly <- tallas_co |>
   group_by(Area, FECHA) |>
   summarise(Lmean = mean(TALLA, na.rm = TRUE), .groups = "drop") |>
   group_by(Area) |>
@@ -450,7 +489,7 @@ fig3 <- (fig3a | fig3b) +
   plot_annotation(tag_levels = "a",
                   title = expression(italic("D. trunculus") ~ "\u2014 Growth parameters"))
 
-ggsave(here("FIG", "Fig3_VBGF_panel.jpeg"), fig3, width = 12, height = 5, dpi = 300)
+ggsave(here("FIG", "Fig3_VBGF_panel.jpeg"), fig3, width = 12, height = 5, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -567,7 +606,7 @@ fig_lw <- ggplot(lp, aes(x = LONGITUD, y = PESO, colour = AREA)) +
        title = expression("Length\u2013weight relationship \u2014 " * italic("D. trunculus"))) +
   theme_reclam
 
-ggsave(here("FIG", "Fig_LW.jpeg"), fig_lw, width = 7, height = 5, dpi = 300)
+ggsave(here("FIG", "Fig_LW.jpeg"), fig_lw, width = 7, height = 5, dpi = fig_dpi)
 
 ## 6.3 Update Wbar and Lorenzen M with fitted a, b ----------------------------
 
@@ -576,8 +615,8 @@ b_c  <- tab_lw |> filter(area == "Cadiz")    |> pull(b)
 a_v  <- tab_lw |> filter(area == "Valencia") |> pull(a)
 b_v  <- tab_lw |> filter(area == "Valencia") |> pull(b)
 
-Lmean_c <- mean(tallas |> filter(Area == "Cadiz")    |> pull(TALLA), na.rm = TRUE)
-Lmean_v <- mean(tallas |> filter(Area == "Valencia") |> pull(TALLA), na.rm = TRUE)
+Lmean_c <- mean(tallas_co |> filter(Area == "Cadiz")    |> pull(TALLA), na.rm = TRUE)
+Lmean_v <- mean(tallas_co |> filter(Area == "Valencia") |> pull(TALLA), na.rm = TRUE)
 
 Wbar_c <- a_c * Lmean_c^b_c
 Wbar_v <- a_v * Lmean_v^b_v
@@ -637,7 +676,7 @@ write_csv(tab_mgr, here("RESULTS", "Table2_MGR.csv"))
 
 ## 8.1 Recruitment index — monthly proportion of recruits (SL ≤ 8 mm) --------
 
-recr_idx <- tallas |>
+recr_idx <- tallas_co |>
   group_by(Area, FECHA, year, month) |>
   summarise(
     N_total   = n(),
@@ -687,7 +726,7 @@ fig8b <- ggplot(cpue_monthly, aes(x = fecha, y = cpue_mean,
 
 ## 8.3 Relative density (N per station) ----------------------------------------
 
-density_ts <- tallas |>
+density_ts <- tallas_co |>
   group_by(Area, FECHA, year, month, PUNTO) |>
   summarise(N = n(), .groups = "drop") |>
   group_by(Area, FECHA, year, month) |>
@@ -718,11 +757,11 @@ fig4 <- (fig8c / fig8b / fig8a) +
                               "\u2014 Population indicators by region")
   )
 
-ggsave(here("FIG", "Fig4_PopIndicators.jpeg"), fig4, width = 10, height = 13, dpi = 300)
+ggsave(here("FIG", "Fig4_PopIndicators.jpeg"), fig4, width = 10, height = 13, dpi = fig_dpi)
 
 ## 8.5 Monthly violin × region (size distribution) ----------------------------
 
-fig_violin <- ggplot(tallas, aes(x = factor(month), y = TALLA,
+fig_violin <- ggplot(tallas_co, aes(x = factor(month), y = TALLA,
                                   fill = Area, colour = Area)) +
   geom_violin(alpha = 0.35, scale = "width", trim = TRUE) +
   geom_boxplot(width = 0.12, outlier.size = 0.5, alpha = 0.75) +
@@ -734,7 +773,7 @@ fig_violin <- ggplot(tallas, aes(x = factor(month), y = TALLA,
        title = expression("Monthly size distribution \u2014 " * italic("D. trunculus"))) +
   theme_reclam
 
-ggsave(here("FIG", "FigS3_SizeViolin.jpeg"), fig_violin, width = 12, height = 5, dpi = 300)
+ggsave(here("FIG", "FigS3_SizeViolin.jpeg"), fig_violin, width = 12, height = 5, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -759,8 +798,8 @@ run_wilcox <- function(var_cadiz, var_valencia, label) {
 
 tab_wilcox <- bind_rows(
   run_wilcox(
-    tallas |> filter(Area == "Cadiz")    |> pull(TALLA),
-    tallas |> filter(Area == "Valencia") |> pull(TALLA),
+    tallas_co |> filter(Area == "Cadiz")    |> pull(TALLA),
+    tallas_co |> filter(Area == "Valencia") |> pull(TALLA),
     "Shell length (mm)"
   ),
   run_wilcox(
@@ -787,8 +826,8 @@ write_csv(tab_wilcox, here("RESULTS", "Table3_Wilcoxon.csv"))
 ## 9.2 Cohen's d effect sizes --------------------------------------------------
 
 d_size <- cohen.d(
-  tallas |> filter(Area == "Cadiz")    |> pull(TALLA),
-  tallas |> filter(Area == "Valencia") |> pull(TALLA)
+  tallas_co |> filter(Area == "Cadiz")    |> pull(TALLA),
+  tallas_co |> filter(Area == "Valencia") |> pull(TALLA)
 )
 d_ri <- cohen.d(
   recr_idx |> filter(Area == "Cadiz")    |> pull(RI),
@@ -810,7 +849,7 @@ cat(sprintf("KW Valencia: H = %.2f, df = %d, p = %.4f\n",
 
 ## 9.4 Comparison boxplot (Figure 5) ------------------------------------------
 
-fig5 <- ggplot(tallas, aes(x = Area, y = TALLA, fill = Area)) +
+fig5 <- ggplot(tallas_co, aes(x = Area, y = TALLA, fill = Area)) +
   geom_violin(alpha = 0.5, trim = TRUE) +
   geom_boxplot(width = 0.10, outlier.shape = 21, outlier.size = 0.8,
                colour = "grey20") +
@@ -821,7 +860,7 @@ fig5 <- ggplot(tallas, aes(x = Area, y = TALLA, fill = Area)) +
        title = expression("Size comparison \u2014 " * italic("D. trunculus"))) +
   theme_reclam + theme(legend.position = "none")
 
-ggsave(here("FIG", "Fig5_SizeComparison.jpeg"), fig5, width = 6, height = 5, dpi = 300)
+ggsave(here("FIG", "Fig5_SizeComparison.jpeg"), fig5, width = 6, height = 5, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -834,7 +873,7 @@ ggsave(here("FIG", "Fig5_SizeComparison.jpeg"), fig5, width = 6, height = 5, dpi
 
 ## 10.1 Station-level dataset --------------------------------------------------
 
-lmm_data <- tallas |>
+lmm_data <- tallas_co |>
   group_by(Area, PUNTO, year, month, FECHA) |>
   summarise(
     Lmean  = mean(TALLA, na.rm = TRUE),
@@ -908,7 +947,7 @@ fig_diag <- ggplot(diag_df, aes(x = fitted, y = resid_std, colour = Area)) +
        title = "LMM diagnostics \u2014 residuals vs. fitted") +
   theme_reclam
 
-ggsave(here("FIG", "FigS1_LMM_diag.jpeg"), fig_diag, width = 7, height = 5, dpi = 300)
+ggsave(here("FIG", "FigS1_LMM_diag.jpeg"), fig_diag, width = 7, height = 5, dpi = fig_dpi)
 # ─────────────────────────────────────────────────────────────────────────────
 # 11. PUBLICATION-READY COMPOSITE FIGURES
 # ─────────────────────────────────────────────────────────────────────────────
@@ -916,7 +955,7 @@ ggsave(here("FIG", "FigS1_LMM_diag.jpeg"), fig_diag, width = 7, height = 5, dpi 
 # Figure 2 — LFQ panel
 fig2_panel <- (fig2a / fig2b) + plot_annotation(tag_levels = "a")
 ggsave(here("FIG", "Fig2_LFQ_panel.jpeg"), fig2_panel,
-       width = 14, height = 18, dpi = 300)
+       width = 14, height = 18, dpi = fig_dpi)
 
 # Figure 3 — already saved above (fig3 = fig3a | fig3b)
 # Figure 4 — already saved above (fig4)
