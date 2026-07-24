@@ -6,14 +6,13 @@
 #
 # Analyses:
 #   0.  Setup & helpers
-#   1.  Data loading (size, L-W, CPUE, catch) — coquina only (Especie == "CO")
+#   1.  Data loading (size, L-W) — coquina only (Especie == "CO")
 #   2.  Size-frequency distributions (LFQ)
 #   3.  von Bertalanffy growth (ELEFAN_GA + NLS + comparison)
 #   4.  Growth performance index (Φ')
 #   5.  Natural mortality — Pauly(1980), Hoenig(1983), Lorenzen(1996)
 #   6.  Length-weight relationship (allometric)
 #   7.  Mass-specific growth rate (MGR) — Brey (2001)
-#   8.  Population indicators: density, biomass, CPUE, recruitment index
 #   9.  Statistical comparisons (Wilcoxon, Cohen's d, Kruskal-Wallis)
 #  10.  Linear mixed-effects models (LMM)
 #  11.  Publication-ready composite figures (patchwork)
@@ -62,10 +61,13 @@ suppressPackageStartupMessages({
   library(patchwork)     # Multi-panel layout
   library(viridis)       # Colour-blind palettes
   library(ggpubr)        # stat_compare_means
+  library(car)
 
   # Tables
   library(flextable)
 })
+
+
 
 ## 0.2 Publication theme -------------------------------------------------------
 
@@ -147,50 +149,8 @@ tallas <- bind_rows(tallac, tallav) |>
   )
 
 # Subconjunto coquina — usado en análisis de crecimiento y mortalidad
-tallas_co <- tallas |> filter(especie == "Coquina")
-
-## 1.2 Length-weight (talla_peso) ----------------------------------------------
-
-lpesoc <- read_excel(archivo_cadiz,    sheet = "talla_peso") |>
-  filter(tolower(Especie) == "co") |>                 # coquina only
-  mutate(area = "Cadiz")
-lpesov <- read_excel(archivo_valencia, sheet = "talla_peso") |>
-  filter(tolower(Especie) == "co") |>                 # coquina only
-  mutate(area = "Valencia")
-
-lp <- bind_rows(lpesoc, lpesov) |>
-  dplyr::rename_with(toupper) |>
-  dplyr::filter(!is.na(LONGITUD), !is.na(PESO), LONGITUD > 0, PESO > 0)
-
-## 1.3 Coquina catch / CPUE ---------------------------------------------------
-
-harmonise_cap <- function(df) {
-  df |>
-    mutate(
-      across(any_of(c("peso_total_con_cascajo_g",
-                       "peso_muestreado_total_con_cascajo_g",
-                       "peso_total_sin_cascajo_g",
-                       "peso_muestra_sin_cascajo_g")), as.numeric),
-      # Cádiz registra con cascajo; Valencia registra sin cascajo
-      peso_total_con_cascajo_g = coalesce(peso_total_con_cascajo_g,
-                                           peso_total_sin_cascajo_g),
-      observaciones = as.character(observaciones),
-      fecha         = as.Date(fecha)
-    )
-}
-
-cap_coq_c <- read_excel(archivo_cadiz,    sheet = "Captura_coquina") |>
-  mutate(area = "Cadiz")    |> clean_names() |> harmonise_cap()
-cap_coq_v <- read_excel(archivo_valencia, sheet = "Captura_coquina") |>
-  mutate(area = "Valencia") |> clean_names() |> harmonise_cap()
-
-cap_coq <- bind_rows(cap_coq_c, cap_coq_v) |>
-  dplyr::mutate(
-    cpue_kg_h = (peso_total_con_cascajo_g / 1000) /
-                (tiempo_de_pesca_minutos  / 60),   # kg · h⁻¹
-    year  = year(fecha),
-    month = month(fecha)
-  )
+tallas_co <- tallas |> filter(especie == "Coquina",
+                              tipo_rastro == "Poblacional")
 
 
 
@@ -221,8 +181,10 @@ build_lfq <- function(df) {
 }
 
 # ELEFAN usa solo coquina
-lfq_c <- lfqRestructure(build_lfq(tallas_co |> filter(Area == "Cadiz")),    MA = 5)
-lfq_v <- lfqRestructure(build_lfq(tallas_co |> filter(Area == "Valencia")), MA = 5)
+lfq_c <- lfqRestructure(build_lfq(tallas_co |> filter(Area == "Cadiz",
+                                                      tipo_rastro == "Poblacional")),    MA = 5)
+lfq_v <- lfqRestructure(build_lfq(tallas_co |> filter(Area == "Valencia",
+                                                      tipo_rastro == "Poblacional")), MA = 5)
 
 ## 2.2 Base data — LFQ por especie x area x rastro ----------------------------
 
@@ -234,11 +196,10 @@ ni_plot <- tallas |>
     is_recruit  = talla_cls <= 10.8
   )
 
-## 2.3 LFQ barras por especie x area x rastro ----------------------------------
-
-make_lfq_plot <- function(sp, area_nm, rastro_nm, col) {
+## 2.3 LFQ barras por especie x area -------------------------------------
+make_lfq_plot <- function(sp, area_nm, col) {
   df <- ni_plot |>
-    filter(especie == sp, Area == area_nm, tipo_rastro == rastro_nm)
+    filter(especie == sp, Area == area_nm)
   if (nrow(df) == 0) return(NULL)
   ggplot(df, aes(x = talla_cls, y = Ni, fill = is_recruit)) +
     geom_col(width = 0.9) +
@@ -250,34 +211,40 @@ make_lfq_plot <- function(sp, area_nm, rastro_nm, col) {
       labels = c("TRUE" = "Recruit (≤10.8 mm)", "FALSE" = "Adult")
     ) +
     labs(
-      title = bquote(.(toupper(sp)) ~ "—" ~ .(area_nm) ~ "|" ~ .(rastro_nm)),
+      title = bquote(.(toupper(sp)) ~ "—" ~ .(area_nm)),
       x = "Shell length (mm)", y = expression(N[i]), fill = NULL
     ) +
     theme_reclam
 }
 
-# Generar una figura por cada combinación especie x area x rastro
+# Generar una figura por cada combinación especie x area
 combos <- tallas |>
-  distinct(especie, Area, tipo_rastro) |>
-  arrange(especie, Area, tipo_rastro)
+  distinct(especie, Area) |>
+  arrange(especie, Area)
 
-walk(seq_len(nrow(combos)), function(i) {
-  sp  <- as.character(combos$especie[i])
-  ar  <- combos$Area[i]
-  ras <- as.character(combos$tipo_rastro[i])
+plots_lfq <- map(seq_len(nrow(combos)), function(i) {
+  sp <- as.character(combos$especie[i])
+  ar <- combos$Area[i]
   col <- pal_area[ar]
-  p   <- make_lfq_plot(sp, ar, ras, col)
+  make_lfq_plot(sp, ar, col)
+}) |>
+  set_names(sprintf("%s_%s", combos$especie, combos$Area))
+
+# inspeccionar antes de guardar
+plots_lfq[["coquina_Cadiz"]]
+
+# guardar todos
+iwalk(plots_lfq, function(p, nm) {
   if (!is.null(p)) {
-    fname <- here("FIG", sprintf("Fig2_LFQ_%s_%s_%s.jpeg", sp, ar, ras))
-    ggsave(fname, p, width = 14, height = 10, dpi = fig_dpi)
+    ggsave(here("FIG", sprintf("Fig2_LFQ_%s.jpeg", nm)), p,
+           width = 14, height = 10, dpi = fig_dpi)
   }
 })
-
 ## 2.4 LFQ densidad por especie x area x rastro --------------------------------
 
 dens_data <- tallas |>
   mutate(fecha_label = paste(year, sprintf("%02d", month), sep = "-")) |>
-  group_by(especie, Area, tipo_rastro, fecha_label) |>
+  group_by(especie, Area, fecha_label) |>
   filter(n() >= 5) |>
   summarise(
     d = list(density(TALLA, n = 512)),
@@ -288,47 +255,107 @@ dens_data <- tallas |>
   unnest(c(x, y)) |>
   mutate(size_class = if_else(x <= 10.8, "Recruit", "Adult"))
 
-# Un plot de densidad por especie (facet rastro x fecha)
-walk(levels(tallas$especie), function(sp) {
+plots_dens <- map(levels(tallas$especie), function(sp) {
   df <- dens_data |> filter(especie == sp)
-  if (nrow(df) == 0) return(invisible(NULL))
-  p <- ggplot(df, aes(x = x, y = y, colour = Area, fill = Area)) +
+  if (nrow(df) == 0) return(NULL)
+  ggplot(df, aes(x = x, y = y, colour = Area, fill = Area)) +
     geom_area(aes(alpha = size_class), position = "identity") +
     geom_line(linewidth = 0.7) +
-    geom_vline(xintercept = 10.8, linetype = "dashed",
+    geom_vline(aes(xintercept = 10.8, linetype = "L50"),
                colour = "grey30", linewidth = 0.5) +
-    facet_grid(tipo_rastro ~ fecha_label, scales = "free_y") +
+    facet_wrap(~ fecha_label, scales = "free_y", ncol = 3) +
     scale_colour_manual(values = pal_area) +
     scale_fill_manual(values   = pal_area) +
-    scale_alpha_manual(values  = c("Recruit" = 0.6, "Adult" = 0.15),
-                       labels  = c("Recruit" = "≤10.8 mm", "Adult" = "Adult")) +
+    scale_alpha_manual(values  = c("Recruit" = 0.6, "Adult" = 0.15)) +
+    scale_linetype_manual(values = c("L50" = "dashed")) +
+    guides(alpha = "none") +
     labs(x = "Shell length (mm)", y = "Density",
-         colour = "Region", fill = "Region", alpha = NULL,
-         title = paste0(toupper(sp), " — Length-frequency by rastro type")) +
+         colour = "Region", fill = "Region", linetype = NULL) +
     theme_reclam +
     theme(strip.text.x = element_text(size = 7),
           axis.text.x  = element_text(angle = 45, hjust = 1, size = 6))
-  ggsave(here("FIG", sprintf("Fig2_LFQ_density_%s.jpeg", sp)),
-         p, width = 18, height = 8, dpi = fig_dpi)
+}) |>
+  set_names(levels(tallas$especie))
+
+# inspeccionar
+plots_dens[["coquina"]]
+
+# guardar
+iwalk(plots_dens, function(p, sp) {
+  if (!is.null(p)) {
+    ggsave(here("FIG", sprintf("Fig2_LFQ_density_%s.jpeg", sp)),
+           p, width = 8, height = 6, dpi = fig_dpi)
+  }
 })
 
 ## 2.5 LFQ heatmap por especie x rastro x area ---------------------------------
-
-walk(levels(tallas$especie), function(sp) {
-  df <- ni_plot |> filter(especie == sp)
-  if (nrow(df) == 0) return(invisible(NULL))
-  p <- ggplot(df, aes(x = talla_cls, y = factor(month), fill = Ni)) +
+# meses en orden descendente
+p_heatmap_coq <- {
+  df <- ni_plot   # nivel poblacional (coquina), sin split por especie ni rastro
+  ggplot(df %>% 
+           filter(especie == "Coquina"), aes(x = talla_cls, y = factor(fecha_label), fill = Ni)) +
     geom_tile(colour = "white", linewidth = 0.2) +
-    facet_grid(tipo_rastro ~ Area) +
-    scale_fill_viridis_c(option = "A", name = expression(N[i]),
-                         trans = "sqrt", na.value = "grey90") +
-    scale_y_discrete(labels = month.abb) +
-    labs(x = "Shell length (mm)", y = "Month",
-         title = paste0(toupper(sp), " — LFQ heatmap")) +
-    theme_reclam + theme(legend.position = "right")
-  ggsave(here("FIG", sprintf("Fig2c_LFQ_heatmap_%s.jpeg", sp)),
-         p, width = 12, height = 8, dpi = fig_dpi)
-})
+    facet_wrap(~ Area) +
+    scale_fill_viridis_c(option = "G", name = expression(N[i]),
+                         trans = "log1p", na.value = "grey90",
+                         limits = c(0, quantile(df$Ni, 0.9, na.rm = TRUE)),
+                         oob = scales::squish) +
+    #scale_y_discrete(labels = month.abb) +
+    labs(x = "Shell length (mm)", y = "") +
+    theme_reclam + theme(legend.position = "none",
+                         aspect.ratio = 0.5)
+}
+
+# inspeccionar
+p_heatmap_coq
+
+# guardar
+ggsave(here("FIG", "Fig2c_LFQ_heatmap_coquina.jpeg"),
+       p_heatmap_coq, width = 7, height = 9, dpi = fig_dpi)
+
+
+## 8.5 Monthly violin × region (size distribution) ----------------------------
+
+fig_violin <- ggplot(tallas_co,   # ya viene filtrado a Poblacional, sin refiltrar
+                     aes(x = factor(month), y = TALLA,
+                         fill = Area, colour = Area)) +
+  geom_violin(alpha = 0.35, scale = "width", trim = TRUE,
+              position = position_dodge(width = 0.9)) +
+  geom_boxplot(width = 0.12, outlier.size = 0.5, alpha = 0.75,
+               position = position_dodge(width = 0.9)) +
+  ggpubr::stat_compare_means(aes(group = Area), method = "wilcox.test",
+                              label = "p.signif",
+                              label.y = max(tallas_co$TALLA, na.rm = TRUE) * 1.08,
+                              size = 4) +
+  scale_fill_manual(values   = pal_area) +
+  scale_colour_manual(values = pal_area) +
+  scale_x_discrete(labels = month.abb) +
+  labs(x = "Month", y = "Shell length (mm)",
+       fill = "Region", colour = "Region",
+       title = expression("Monthly size distribution \u2014 " * italic("D. trunculus"))) +
+  theme_reclam
+
+# inspeccionar
+fig_violin
+
+# guardar
+ggsave(here("FIG", "FigS3_SizeViolin.jpeg"), fig_violin, width = 14, height = 5, dpi = fig_dpi)
+
+## 9.4 Comparison boxplot (Figure 5) ------------------------------------------
+
+fig5 <- ggplot(tallas_co, aes(x = Area, y = TALLA, fill = Area)) +
+  geom_violin(alpha = 0.5, trim = TRUE) +
+  geom_boxplot(width = 0.10, outlier.shape = 21, outlier.size = 0.8,
+               colour = "grey20") +
+  ggpubr::stat_compare_means(method = "wilcox.test", label = "p.format",
+                             label.x = 1.4, size = 3.5) +
+  scale_fill_manual(values = pal_area) +
+  labs(x = NULL, y = "Shell length (mm)", fill = NULL,
+       title = expression("Size comparison \u2014 " * italic("D. trunculus"))) +
+  theme_reclam + theme(legend.position = "none")
+
+ggsave(here("FIG", "Fig5_SizeComparison.jpeg"), fig5, width = 6, height = 5, dpi = fig_dpi)
+
 
 # 3. VON BERTALANFFY GROWTH PARAMETERS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -361,15 +388,16 @@ run_elefan <- function(lfq_obj, label,
 fit_eg_c <- run_elefan(lfq_c, "Cadiz")
 # [ELEFAN_GA] Cadiz ...
 # Genetic algorithm is running. This might take some time.
-# Linf=23.42  K=2.285  Rn=0.1799
+# Linf=24.07  K=1.267  Rn=0.1602
 fit_eg_v <- run_elefan(lfq_v, "Valencia")
 # [ELEFAN_GA] Valencia ...
 # Genetic algorithm is running. This might take some time.
-# Linf=21.65  K=1.017  Rn=0.1578
+#  Linf=36.49  K=0.281  Rn=0.1866
 
 ## 3.2 NLS on mean monthly length (independent validation) --------------------
 
 mean_monthly <- tallas_co |>
+  filter(tipo_rastro == "Poblacional") |>
   group_by(Area, FECHA) |>
   summarise(Lmean = mean(TALLA, na.rm = TRUE), .groups = "drop") |>
   group_by(Area) |>
@@ -417,7 +445,7 @@ write_csv(tab_vbgf, here("RESULTS", "Table2_VBGF.csv"))
 
 ## 3.4 VBGF growth curves plot (Figure 3a) ------------------------------------
 
-age_seq <- seq(0, 5, by = 0.02)
+age_seq <- seq(0, 7, by = 0.02)
 
 vbgf_pred <- function(Linf, K, t0, area, method) {
   tibble(age    = age_seq,
@@ -442,8 +470,7 @@ fig3a <- ggplot(vbgf_curves, aes(x = age, y = length,
   scale_colour_manual(values = pal_area) +
   scale_linetype_manual(values = c("ELEFAN_GA" = "solid", "NLS" = "dashed")) +
   labs(x = "Age (years)", y = "Shell length (mm)",
-       colour = "Region", linetype = "Method",
-       title = expression("von Bertalanffy growth")) +
+       colour = "Region", linetype = "Method") +
   theme_reclam
 
 
@@ -476,18 +503,19 @@ write_csv(phi_lit, here("RESULTS", "Table_Phi_literature.csv"))
 print(phi_lit)
 
 fig3b <- ggplot(phi_df, aes(x = Area, y = Phi_prime, fill = Area)) +
-  geom_col(width = 0.5, colour = "grey20") +
-  geom_text(aes(label = round(Phi_prime, 2)), vjust = -0.5, size = 4, fontface = "bold") +
+  geom_col(width = 0.5, colour = "grey20",
+           alpha=0.5) +
+  geom_text(aes(label = round(Phi_prime, 2)), 
+            vjust = -0.5, size = 4, 
+            fontface = "bold") +
   scale_fill_manual(values = pal_area) +
   ylim(0, max(phi_df$Phi_prime) * 1.2) +
   labs(x = NULL,
-       y = expression(phi*"' = log"[10]*"(K) + 2\u00b7log"[10]*"(L"[infinity]*")"),
-       title = "Growth performance index (\u03a6\u2032)") +
+       y = expression(phi*"' = log"[10]*"(K) + 2\u00b7log"[10]*"(L"[infinity]*")")) +
   theme_reclam + theme(legend.position = "none")
 
 fig3 <- (fig3a | fig3b) +
-  plot_annotation(tag_levels = "a",
-                  title = expression(italic("D. trunculus") ~ "\u2014 Growth parameters"))
+  plot_annotation(tag_levels = "a")
 
 ggsave(here("FIG", "Fig3_VBGF_panel.jpeg"), fig3, width = 12, height = 5, dpi = fig_dpi)
 
@@ -555,6 +583,19 @@ write_csv(tab_mort, here("RESULTS", "Table2_Mortality.csv"))
 # 6. LENGTH-WEIGHT RELATIONSHIP  W = a · L^b
 # ─────────────────────────────────────────────────────────────────────────────
 
+## 1.2 Length-weight (talla_peso) ----------------------------------------------
+
+lpesoc <- read_excel(archivo_cadiz,    sheet = "talla_peso") |>
+  filter(tolower(Especie) == "co") |>                 # coquina only
+  mutate(area = "Cadiz")
+lpesov <- read_excel(archivo_valencia, sheet = "talla_peso") |>
+  filter(tolower(Especie) == "co") |>                 # coquina only
+  mutate(area = "Valencia")
+
+lp <- bind_rows(lpesoc, lpesov) |>
+  dplyr::rename_with(toupper) |>
+  dplyr::filter(!is.na(LONGITUD), !is.na(PESO), LONGITUD > 0, PESO > 0)
+
 ## 6.1 Log-linear regression per region ----------------------------------------
 
 lw_fit <- function(df, area_label) {
@@ -594,19 +635,22 @@ lw_curves <- tab_lw |>
     AREA     = area
   )
 
-fig_lw <- ggplot(lp, aes(x = LONGITUD, y = PESO, colour = AREA)) +
-  geom_point(alpha = 0.3, size = 1.2) +
+fig_lw <- ggplot(lp, aes(x = LONGITUD,
+                         y = PESO,
+                         colour = AREA)) +
+  geom_point(alpha = 0.1, size = 1.2) +
   geom_line(data = lw_curves, linewidth = 1) +
   scale_colour_manual(values = pal_area) +
   scale_x_log10() + scale_y_log10() +
   annotation_logticks(sides = "bl", size = 0.3) +
   labs(x = "Shell length (mm)", y = "Wet weight (g)",
-       colour = "Region",
-       caption = "log-log scale; curve fitted by OLS on log-transformed data",
-       title = expression("Length\u2013weight relationship \u2014 " * italic("D. trunculus"))) +
-  theme_reclam
+       colour = "Region") +
+  theme_reclam + theme(legend.position = "none")
 
-ggsave(here("FIG", "Fig_LW.jpeg"), fig_lw, width = 7, height = 5, dpi = fig_dpi)
+ggsave(here("FIG", "Fig_LW.jpeg"), 
+       fig_lw, width = 7, 
+       height = 5,
+       dpi = fig_dpi)
 
 ## 6.3 Update Wbar and Lorenzen M with fitted a, b ----------------------------
 
@@ -615,8 +659,10 @@ b_c  <- tab_lw |> filter(area == "Cadiz")    |> pull(b)
 a_v  <- tab_lw |> filter(area == "Valencia") |> pull(a)
 b_v  <- tab_lw |> filter(area == "Valencia") |> pull(b)
 
-Lmean_c <- mean(tallas_co |> filter(Area == "Cadiz")    |> pull(TALLA), na.rm = TRUE)
-Lmean_v <- mean(tallas_co |> filter(Area == "Valencia") |> pull(TALLA), na.rm = TRUE)
+Lmean_c <- mean(tallas_co |> filter(Area == "Cadiz")    |>
+                  pull(TALLA), na.rm = TRUE)
+Lmean_v <- mean(tallas_co |> filter(Area == "Valencia") |> 
+                  pull(TALLA), na.rm = TRUE)
 
 Wbar_c <- a_c * Lmean_c^b_c
 Wbar_v <- a_v * Lmean_v^b_v
@@ -632,148 +678,107 @@ message("Updated Lorenzen M  GoC: ", round(M_l_c, 3),
         "  GoV: ", round(M_l_v, 3))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 7. MASS-SPECIFIC GROWTH RATE (MGR) — Brey (2001)
-# ─────────────────────────────────────────────────────────────────────────────
+## 7. PRODUCCION SECUNDARIA RECLAM GOV versus GOC (Marina) ----------
+
 # Bioanalogical model for bivalves (Brey 2001):
 #   log₁₀(P/B) = 0.8067 − 0.1883·log₁₀(AFDW) + 0.6918·log₁₀(T) − 0.3697·log₁₀(M)
 #
 # AFDW ≈ 0.065 · WW  (conversion factor for Donax; update with lab ash data)
 # MGR reported as: mg AFDW · g AFDW⁻¹ · d⁻¹
 
-afdw_factor <- 0.065   # AFDW/WW  — replace with measured ratio from Gandia
+# leer datos 
 
-mgr_brey <- function(Wbar_WW, M_yr, T_C, afdw_f = afdw_factor) {
-  AFDW   <- Wbar_WW * afdw_f
-  logPB  <- 0.8067 - 0.1883 * log10(AFDW) +
-            0.6918 * log10(T_C) -
-            0.3697 * log10(M_yr)
-  PB     <- 10^logPB                     # yr⁻¹
-  MGR    <- PB / 365 * 1000              # mg AFDW · g AFDW⁻¹ · d⁻¹
-  list(AFDW_g = AFDW, PB_yr = PB, MGR = MGR)
+Data_produccion <- read_csv2(here("DATA", 
+                                  "Data_produccion.csv"))
+# Datos
+
+# 1. AJUSTAR MODELO MIXTO
+# (1|Estacion) le dice a R que Estacion es el factor aleatorio que agrupa las réplicas
+datos <- Data_produccion |>
+  mutate(P = as.numeric(P),
+         B = as.numeric(B),
+         Ratio =Ratio/100)
+
+# revisar si aparecieron NA por coercion (valores no numericos ocultos)
+datos |> filter(is.na(B) | is.na(P))
+
+modelo_mixto <- lmer(B ~ Localizacion + (1 | Estacion), data = datos)
+
+# Ver el resultado del análisis
+summary(modelo_mixto)
+
+# Obtener la tabla ANOVA clásica con los p-valores para la Localización
+anova(modelo_mixto)
+
+#COMO no me da la p, hago esto: Consiste en comparar tu modelo con un "modelo nulo" (un modelo que no tiene la variable Localizacion). La diferencia entre ambos te dará la \(p\) real mediante una distribución de Chi-cuadrado (\(\chi ^{2}\)).
+
+# 2. El modelo nulo (sin Localizacion, solo con el efecto aleatorio de las estaciones)
+modelo_nulo <- lmer(B ~ 1 + (1 | Estacion), data = datos, REML = FALSE)
+
+# 3. Comparar ambos modelos para obtener la p (ya me da la p)
+anova(modelo_nulo, modelo_mixto)
+
+# 4. Asunciones para comprobar su aplicación:
+#4.1 Gráfico de residuos vs. valores ajustados Linealidad y Homocedasticidad (Homogeneidad de varianzas)
+plot(modelo_mixto)
+
+#4.2 Gráfico Q-Q para ver la alineación de los puntos(Normalidad residuos)
+qqnorm(residuals(modelo_mixto))
+qqline(residuals(modelo_mixto), col = "red")
+
+# Test estadístico (buscamos un p-valor mayor a 0.05)
+shapiro.test(residuals(modelo_mixto))
+
+#4.3 Independencia de las observaciones (Garantizada por el diseño)
+
+#Cómo se cumple: Al haber incluido (1 | Estacion) en la fórmula de tu modelo mixto, ya has corregido este supuesto matemáticamente. El modelo asume esa dependencia y la controla.
+
+#_________________________________________________________________________________________
+##BOXPLOT
+# Crear el boxplot por localización
+
+
+pal_area <- c(Cadiz = "#1B7FC4", Valencia = "#D94F00")
+
+datos <- datos |>
+  mutate(P = as.numeric(P),
+         B = as.numeric(B))
+
+make_panel <- function(var, ylab) {
+  ggplot(datos, aes(x = Localizacion, y = .data[[var]], fill = Localizacion)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.6, 
+                 width = 0.5,
+                 color = "black") +
+    geom_jitter(aes(color = Estacion), width = 0.15, size = 2.5) +
+    scale_fill_manual(values = pal_area) +
+    scale_color_viridis_d(option = "D") +
+    guides(fill = "none") +
+    labs(x = "", y = ylab, color = "Stations") +
+    theme_bw() +
+    theme(
+      axis.title    = element_text(face = "bold", size = 12),
+      axis.text     = element_text(size = 11),
+      legend.title  = element_text(face = "bold")
+    )
 }
 
-mgr_c <- mgr_brey(Wbar_c, M_mean_c, T_c)
-mgr_v <- mgr_brey(Wbar_v, M_mean_v, T_v)
+p_B <- make_panel("B",     "Biomass")
+p_P <- make_panel("P",     "Production")
+p_R <- make_panel("Ratio", "P / B")
 
-tab_mgr <- tibble(
-  Area                         = c("Cadiz", "Valencia"),
-  `Wbar_WW (g)`                = c(Wbar_c, Wbar_v),
-  `AFDW_mean (g)`              = c(mgr_c$AFDW_g, mgr_v$AFDW_g),
-  `M_mean (yr-1)`              = c(M_mean_c, M_mean_v),
-  `P/B (yr-1)`                 = c(mgr_c$PB_yr, mgr_v$PB_yr),
-  `MGR (mg AFDW g-1 d-1)` = c(mgr_c$MGR, mgr_v$MGR)
-) |>
-  mutate(across(where(is.numeric), \(x) round(x, 4)))
+panel_PB <- (p_B | p_P | p_R) +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "a")
 
-print(tab_mgr)
-write_csv(tab_mgr, here("RESULTS", "Table2_MGR.csv"))
+# inspeccionar
+panel_PB
+
+# guardar
+ggsave(here("FIG", "FigX_P_B_Ratio.jpeg"), panel_PB,
+       width = 8, height = 4, dpi = fig_dpi)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 8. POPULATION INDICATORS
-# ─────────────────────────────────────────────────────────────────────────────
 
-## 8.1 Recruitment index — monthly proportion of recruits (SL ≤ 8 mm) --------
-
-recr_idx <- tallas_co |>
-  group_by(Area, FECHA, year, month) |>
-  summarise(
-    N_total   = n(),
-    N_recruit = sum(TALLA <= 25, na.rm = TRUE),
-    RI        = N_recruit / N_total,
-    .groups   = "drop"
-  )
-
-fig8a <- ggplot(recr_idx, aes(x = FECHA, y = RI * 100, colour = Area, fill = Area)) +
-  geom_ribbon(aes(ymin = 0, ymax = RI * 100), alpha = 0.15) +
-  geom_line(linewidth = 0.9) + geom_point(size = 2) +
-  scale_colour_manual(values = pal_area) +
-  scale_fill_manual(values   = pal_area) +
-  scale_x_date(date_breaks = "2 months", date_labels = "%b-%y") +
-  labs(x = NULL, y = "Recruitment index (%)",
-       colour = "Region", fill = "Region",
-       title = "Proportion of recruits (SL \u2264 25 mm)") +
-  theme_reclam +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-## 8.2 CPUE monthly time series ------------------------------------------------
-
-cpue_monthly <- cap_coq |>
-  filter(!is.na(cpue_kg_h), cpue_kg_h >= 0) |>
-  group_by(area, year, month) |>
-  summarise(
-    fecha     = first(fecha),
-    cpue_mean = mean(cpue_kg_h, na.rm = TRUE),
-    cpue_se   = sd(cpue_kg_h,   na.rm = TRUE) / sqrt(n()),
-    n         = n(),
-    .groups   = "drop"
-  )
-
-fig8b <- ggplot(cpue_monthly, aes(x = fecha, y = cpue_mean,
-                                   colour = area, fill = area)) +
-  geom_ribbon(aes(ymin = pmax(cpue_mean - cpue_se, 0),
-                  ymax = cpue_mean + cpue_se), alpha = 0.2, colour = NA) +
-  geom_line(linewidth = 0.9) + geom_point(size = 2) +
-  scale_colour_manual(values = pal_area) +
-  scale_fill_manual(values   = pal_area) +
-  scale_x_date(date_breaks = "2 months", date_labels = "%b-%y") +
-  labs(x = NULL, y = expression("CPUE (kg" %.% "h"^{-1}*")"),
-       colour = "Region", fill = "Region",
-       title = "Catch-per-unit-effort") +
-  theme_reclam +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-## 8.3 Relative density (N per station) ----------------------------------------
-
-density_ts <- tallas_co |>
-  group_by(Area, FECHA, year, month, PUNTO) |>
-  summarise(N = n(), .groups = "drop") |>
-  group_by(Area, FECHA, year, month) |>
-  summarise(
-    N_mean = mean(N), N_se = sd(N) / sqrt(n()), .groups = "drop"
-  )
-
-fig8c <- ggplot(density_ts, aes(x = FECHA, y = N_mean,
-                                 colour = Area, fill = Area)) +
-  geom_ribbon(aes(ymin = pmax(N_mean - N_se, 0), ymax = N_mean + N_se),
-              alpha = 0.2, colour = NA) +
-  geom_line(linewidth = 0.9) + geom_point(size = 2) +
-  scale_colour_manual(values = pal_area) +
-  scale_fill_manual(values   = pal_area) +
-  scale_x_date(date_breaks = "2 months", date_labels = "%b-%y") +
-  labs(x = NULL, y = expression("Density (N\u00b7station"^{-1}*")"),
-       colour = "Region", fill = "Region",
-       title = "Relative density") +
-  theme_reclam +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-## 8.4 Patchwork Figure 4 (population indicators panel) -----------------------
-
-fig4 <- (fig8c / fig8b / fig8a) +
-  plot_annotation(
-    tag_levels = "a",
-    title      = expression(italic("D. trunculus") ~
-                              "\u2014 Population indicators by region")
-  )
-
-ggsave(here("FIG", "Fig4_PopIndicators.jpeg"), fig4, width = 10, height = 13, dpi = fig_dpi)
-
-## 8.5 Monthly violin × region (size distribution) ----------------------------
-
-fig_violin <- ggplot(tallas_co, aes(x = factor(month), y = TALLA,
-                                  fill = Area, colour = Area)) +
-  geom_violin(alpha = 0.35, scale = "width", trim = TRUE) +
-  geom_boxplot(width = 0.12, outlier.size = 0.5, alpha = 0.75) +
-  scale_fill_manual(values   = pal_area) +
-  scale_colour_manual(values = pal_area) +
-  scale_x_discrete(labels = month.abb) +
-  labs(x = "Month", y = "Shell length (mm)",
-       fill = "Region", colour = "Region",
-       title = expression("Monthly size distribution \u2014 " * italic("D. trunculus"))) +
-  theme_reclam
-
-ggsave(here("FIG", "FigS3_SizeViolin.jpeg"), fig_violin, width = 12, height = 5, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -798,20 +803,22 @@ run_wilcox <- function(var_cadiz, var_valencia, label) {
 
 tab_wilcox <- bind_rows(
   run_wilcox(
-    tallas_co |> filter(Area == "Cadiz")    |> pull(TALLA),
-    tallas_co |> filter(Area == "Valencia") |> pull(TALLA),
+    tallas_co |> filter(Area == "Cadiz",
+                        tipo_rastro == "Poblacional")    |> pull(TALLA),
+    tallas_co |> filter(Area == "Valencia",
+                        tipo_rastro == "Poblacional") |> pull(TALLA),
     "Shell length (mm)"
   ),
   run_wilcox(
     recr_idx |> filter(Area == "Cadiz")    |> pull(RI),
     recr_idx |> filter(Area == "Valencia") |> pull(RI),
     "Recruitment index"
-  ),
-  run_wilcox(
-    cpue_monthly |> filter(area == "Cadiz")    |> pull(cpue_mean),
-    cpue_monthly |> filter(area == "Valencia") |> pull(cpue_mean),
-    "CPUE (g/min)"
-  )
+  )#,
+  # run_wilcox(
+  #   cpue_monthly |> filter(Area == "Cadiz")    |> pull(cpue_mean),
+  #   cpue_monthly |> filter(Area == "Valencia") |> pull(cpue_mean),
+  #   "CPUE (g/min)"
+  # )
 ) |>
   mutate(p_adj = p.adjust(p_raw, method = "BH"),
          Sig   = case_when(p_adj < 0.001 ~ "***",
@@ -847,20 +854,6 @@ cat(sprintf("KW Cadiz   : H = %.2f, df = %d, p = %.4f\n",
 cat(sprintf("KW Valencia: H = %.2f, df = %d, p = %.4f\n",
             kw_v$statistic, kw_v$parameter, kw_v$p.value))
 
-## 9.4 Comparison boxplot (Figure 5) ------------------------------------------
-
-fig5 <- ggplot(tallas_co, aes(x = Area, y = TALLA, fill = Area)) +
-  geom_violin(alpha = 0.5, trim = TRUE) +
-  geom_boxplot(width = 0.10, outlier.shape = 21, outlier.size = 0.8,
-               colour = "grey20") +
-  ggpubr::stat_compare_means(method = "wilcox.test", label = "p.format",
-                              label.x = 1.4, size = 3.5) +
-  scale_fill_manual(values = pal_area) +
-  labs(x = NULL, y = "Shell length (mm)", fill = NULL,
-       title = expression("Size comparison \u2014 " * italic("D. trunculus"))) +
-  theme_reclam + theme(legend.position = "none")
-
-ggsave(here("FIG", "Fig5_SizeComparison.jpeg"), fig5, width = 6, height = 5, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -874,6 +867,7 @@ ggsave(here("FIG", "Fig5_SizeComparison.jpeg"), fig5, width = 6, height = 5, dpi
 ## 10.1 Station-level dataset --------------------------------------------------
 
 lmm_data <- tallas_co |>
+  filter(tipo_rastro == "Poblacional") |>
   group_by(Area, PUNTO, year, month, FECHA) |>
   summarise(
     Lmean  = mean(TALLA, na.rm = TRUE),
@@ -951,66 +945,110 @@ ggsave(here("FIG", "FigS1_LMM_diag.jpeg"), fig_diag, width = 7, height = 5, dpi 
 # ─────────────────────────────────────────────────────────────────────────────
 # 11. PUBLICATION-READY COMPOSITE FIGURES
 # ─────────────────────────────────────────────────────────────────────────────
+# Figura resumen, 3 filas:
+#   1. LFQ heatmap por region (Cadiz | Valencia)
+#   2. Indice de performance de crecimiento (fig3b, Phi', seccion 4)
+#   3. Produccion — B, P, P/B por region (panel_PB, seccion anterior)
 
-# Figure 2 — LFQ panel
-fig2_panel <- (fig2a / fig2b) + plot_annotation(tag_levels = "a")
-ggsave(here("FIG", "Fig2_LFQ_panel.jpeg"), fig2_panel,
-       width = 14, height = 18, dpi = fig_dpi)
+col_cadiz    <- unname(pal_area["Cadiz"])
+col_valencia <- unname(pal_area["Valencia"])
 
-# Figure 3 — already saved above (fig3 = fig3a | fig3b)
-# Figure 4 — already saved above (fig4)
-# Figure 5 — size comparison already saved
+## 11.1 Fila 1 — LFQ density ridge por region
+# usa dens_data ya calculado en la seccion 2.4
+make_ridge_area <- function(area_nm, col) {
+  df <- dens_data |>
+    filter(especie == "Coquina", Area == area_nm) |>
+    mutate(fecha_label = factor(fecha_label, levels = sort(unique(fecha_label))))
+  lvls <- levels(df$fecha_label)
+  ggplot(df, aes(x = x, y = fecha_label, height = y)) +
+    geom_ridgeline(fill = col, colour = col, alpha = 0.6,
+                   scale = 15, linewidth = 0.4) +
+    geom_vline(xintercept = 10.8, linetype = "dashed",
+               colour = "grey30", linewidth = 0.5) +
+    scale_y_discrete(breaks = lvls[seq(1, length(lvls), by = 2)]) +
+    labs(x = "Shell length (mm)", y = NULL, title = area_nm) +
+    theme_reclam +
+    theme(axis.text.y = element_text(size = 7),
+          plot.title  = element_text(face = "bold", hjust = 0.5))
+}
+
+row_heat <- make_ridge_area("Cadiz", col_cadiz) | make_ridge_area("Valencia", col_valencia)
+
+## 11.2 Fila 2 — Phi' (fig3b, seccion 4) ----------------------------------------
+## 11.3 Fila 3 — produccion B / P / P·B-1 (panel_PB, p_B|p_P|p_R) --------------
+# fig3b y p_B/p_P/p_R ya existen (secciones 4 y previa a esta) -- se reusan tal cual,
+# sin su propio plot_annotation para que el tag_levels quede unico a nivel de fig6
+
+row_prod <- (p_B | p_P | p_R) + 
+  plot_layout(guides = "collect")
+
+
+## 11.4 Ensamblar panel 3 filas --------------------------------------------------
+## fig3b y fig_lw (seccion 6.2, talla-peso) van lado a lado en la fila 2
+
+fig6 <- row_heat / (fig3b | fig_lw) / row_prod +
+  plot_annotation(
+    tag_levels = "a")
+
+# inspeccionar
+fig6
+
+# guardar
+ggsave(here("FIG", "Fig6_Composite_ByRegion.jpeg"), fig6,
+       width = 10, height = 10, dpi = fig_dpi)
+# somatico con condicion corporal, relevante si el paper discute produccion (P/B).
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 12. MASTER PARAMETER TABLE (flextable)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# promedios de P, B y Ratio por region, a partir de datos (Data_produccion)
+tab_prod <- datos |>
+  group_by(Area = Localizacion) |>
+  summarise(
+    P_mean     = mean(P,     na.rm = TRUE),
+    B_mean     = mean(B,     na.rm = TRUE),
+    Ratio_mean = mean(Ratio/100, na.rm = TRUE),
+    .groups    = "drop"
+  )
+
 tab_master <- tab_vbgf |>
   filter(Method == "ELEFAN_GA") |>
   dplyr::select(Area, Linf_mm, K_yr, Phi_prime) |>
   left_join(
     tab_mort |> dplyr::select(Area,
-                               `M_Pauly (yr-1)`,
-                               `M_Hoenig (yr-1)`,
-                               `M_Lorenzen (yr-1)`,
-                               `M_mean (yr-1)`),
+                              `M_Pauly (yr-1)`,
+                              `M_Hoenig (yr-1)`,
+                              `M_Lorenzen (yr-1)`,
+                              `M_mean (yr-1)`),
     by = "Area"
   ) |>
-  left_join(
-    tab_mgr |> dplyr::select(Area, `MGR (mg AFDW g-1 d-1)`),
-    by = "Area"
-  )
+  left_join(tab_prod, by = "Area")
 
 ft <- tab_master |>
   flextable() |>
   set_header_labels(
-    Area                       = "Region",
-    Linf_mm                    = "L\u221e (mm)",
-    K_yr                       = "K (yr\u207b\u00b9)",
-    Phi_prime                  = "\u03a6\u2032",
-    `M_Pauly (yr-1)`           = "M Pauly",
-    `M_Hoenig (yr-1)`          = "M Hoenig",
-    `M_Lorenzen (yr-1)`        = "M Lorenzen",
-    `M_mean (yr-1)`            = "M\u0304 (yr\u207b\u00b9)",
-    `MGR (mg AFDW g-1 d-1)` = "MGR"
+    Area                = "Region",
+    Linf_mm             = "L∞ (mm)",
+    K_yr                = "K (yr⁻¹)",
+    Phi_prime           = "Φ′",
+    `M_Pauly (yr-1)`    = "M Pauly",
+    `M_Hoenig (yr-1)`   = "M Hoenig",
+    `M_Lorenzen (yr-1)` = "M Lorenzen",
+    `M_mean (yr-1)`     = "M̄ (yr⁻¹)",
+    P_mean              = "P",
+    B_mean              = "B",
+    Ratio_mean          = "P/B"
   ) |>
   bold(part = "header") |>
   fontsize(size = 9, part = "all") |>
   font(fontname = "Times New Roman", part = "all") |>
-  bg(i = 1, bg = "#D9E8F5") |>
-  bg(i = 2, bg = "#F5E4D9") |>
   border_outer(border = officer::fp_border(color = "grey40", width = 1)) |>
   autofit()
 
 save_as_docx(ft, path = here("RESULTS", "Table2_Master.docx"))
 write_csv(tab_master, here("RESULTS", "Table2_Master.csv"))
 
-
 # ─────────────────────────────────────────────────────────────────────────────
-message("\n========================================")
-message(" COMPARA_RECLAM.R — all sections done.")
-message(" Figures : ", here("FIG"))
-message(" Results : ", here("RESULTS"))
-message("========================================\n")
 

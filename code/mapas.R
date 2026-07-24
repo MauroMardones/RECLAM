@@ -170,17 +170,14 @@ panel_valencia <- ggplot() +
 
 final_map <- (panel_cadiz | panel_valencia) /
   wrap_elements(map_general) +
-  plot_layout(heights = c(3, 1)) +
-  plot_annotation(
-    title = expression(italic("Donax trunculus") ~ "— Study areas"),
-    theme = theme(plot.title = element_text(size = 11, face = "bold"))
-  )
+  plot_layout(heights = c(3, 1)) 
+  
 
 # Guardar
 ggsave(
   plot     = final_map,
-  filename = "Fig/map_study_areas.png",
-  width    = 10,
-  height   = 8,
+  filename = "FIG/map_study_areas.png",
+  width    = 8,
+  height   = 6,
   dpi      = 300
 )
