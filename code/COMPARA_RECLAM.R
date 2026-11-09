@@ -1041,22 +1041,48 @@ col_valencia <- unname(pal_area["Valencia"])
 
 ## 9.1 Fila 1 — LFQ density ridge por region
 # usa dens_data ya calculado en la Sec. 2.4
+# Ejes comunes para Cadiz y Valencia:
+#  - eje Y: TODOS los meses muestreados en cualquiera de las dos regiones, en el
+#    mismo orden (los meses sin dato en una region quedan como fila vacia, p.ej.
+#    Valencia mar-25 / ago-25), con las mismas etiquetas cada 2 meses.
+#  - eje X: mismo rango de talla en ambos paneles (0 a la talla maxima con
+#    densidad visible), con coord_cartesian para no cortar los poligonos.
+ridge_df   <- dens_data |> filter(especie == "Coquina")
+ridge_lvls <- sort(unique(ridge_df$fecha_label))
+ridge_brks <- ridge_lvls[seq(1, length(ridge_lvls), by = 2)]
+ridge_xmax <- ceiling(max(ridge_df$x[ridge_df$y > max(ridge_df$y) * 0.005]) / 5) * 5
+
+# n de individuos medidos por mes y region (mismo filtro que dens_data: n >= 5)
+ridge_n <- tallas_pob |>
+  filter(especie == "Coquina") |>
+  mutate(fecha_label = paste(year, sprintf("%02d", month), sep = "-")) |>
+  count(Area, fecha_label) |>
+  filter(n >= 5)
+
 make_ridge_area <- function(area_nm, col) {
-  df <- dens_data |>
-    filter(especie == "Coquina", Area == area_nm) |>
-    mutate(fecha_label = factor(fecha_label, levels = sort(unique(fecha_label))))
-  lvls <- levels(df$fecha_label)
+  df <- ridge_df |>
+    filter(Area == area_nm) |>
+    mutate(fecha_label = factor(fecha_label, levels = ridge_lvls))
+  n_df <- ridge_n |>
+    filter(Area == area_nm) |>
+    mutate(fecha_label = factor(fecha_label, levels = ridge_lvls))
   ggplot(df, aes(x = x, y = fecha_label, height = y)) +
     geom_ridgeline(fill = col, colour = col, alpha = 0.6,
                    scale = 15, linewidth = 0.4) +
     geom_vline(xintercept = 10.8, linetype = "dashed",
                colour = "grey30", linewidth = 0.5) +
+    # n medido en cada mes, al borde derecho de su fila
+    geom_text(data = n_df, aes(x = ridge_xmax, y = fecha_label, label = paste0("n=", n)),
+              inherit.aes = FALSE, hjust = 1, vjust = -0.35, size = 1.9, colour = "grey25") +
     scale_y_discrete(
-      breaks = lvls[seq(1, length(lvls), by = 2)],
+      limits = ridge_lvls,                 # mismos meses en ambos paneles
+      drop   = FALSE,
+      breaks = ridge_brks,
       # mismo formato que p_recruit/p_dens/p_cpue (date_labels = "%b-%y")
-      # en vez del "YYYY-MM" crudo de fecha_label
-      labels = format(as.Date(paste0(lvls[seq(1, length(lvls), by = 2)], "-01")), "%b-%y")
+      labels = format(as.Date(paste0(ridge_brks, "-01")), "%b-%y")
     ) +
+    scale_x_continuous(breaks = seq(0, ridge_xmax, by = 10)) +
+    coord_cartesian(xlim = c(0, ridge_xmax)) +   # mismo rango X en ambos paneles
     labs(x = "Shell length (mm)", y = NULL, title = area_nm) +
     theme_reclam +
     theme(axis.text.y = element_text(size = 7),
@@ -1087,13 +1113,20 @@ row_ind <- (p_recruit | p_dens | p_cpue) &
 # solo para la leyenda de un panel. Solo aplica aca; p_R base (usado en
 # panel_PB, Sec. 7) no se toca.
 
+# Leyenda compacta en 2 columnas, arriba a la izquierda (zona vacia del panel:
+# las cajas de Cadiz estan abajo y las de Valencia arriba a la derecha).
+# Tamanos de ejes alineados con theme_reclam (p_R base usa texto mas grande).
 p_R_inset <- p_R +
+  guides(colour = guide_legend(ncol = 2, override.aes = list(size = 1.5))) +
+  theme_reclam +
   theme(
-    legend.position    = c(0.82, 0.28),
-    legend.background  = element_rect(fill = alpha("white", 0.7), colour = "grey70", linewidth = 0.3),
-    legend.key.size    = unit(0.35, "cm"),
-    legend.title       = element_text(size = 8, face = "bold"),
-    legend.text        = element_text(size = 7)
+    legend.position    = c(0.30, 0.80),
+    legend.background  = element_rect(fill = alpha("white", 0.8), colour = "grey70", linewidth = 0.2),
+    legend.key.size    = unit(0.22, "cm"),
+    legend.spacing.x   = unit(0.05, "cm"),
+    legend.margin      = margin(2, 3, 2, 3),
+    legend.title       = element_text(size = 6, face = "bold"),
+    legend.text        = element_text(size = 5.5)
   )
 
 row_perf <- fig3b | fig_lw | p_R_inset
@@ -1109,7 +1142,7 @@ fig6
 
 # guardar
 ggsave(here("FIG", "Fig6_Composite_ByRegion.jpeg"), fig6,
-       width = 9, height = 9, dpi = fig_dpi)
+       width = 7, height = 7, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
