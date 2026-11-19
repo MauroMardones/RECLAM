@@ -258,7 +258,7 @@ plots_lfq[["coquina_Cadiz"]]
 # guardar todos
 iwalk(plots_lfq, function(p, nm) {
   if (!is.null(p)) {
-    ggsave(here("FIG", sprintf("Fig2_LFQ_%s.jpeg", nm)), p,
+    ggsave(here("FIG", sprintf("Fig2_LFQ_%s.png", nm)), p,
            width = 14, height = 10, dpi = fig_dpi)
   }
 })
@@ -305,7 +305,7 @@ plots_dens[["coquina"]]
 # guardar
 iwalk(plots_dens, function(p, sp) {
   if (!is.null(p)) {
-    ggsave(here("FIG", sprintf("Fig2_LFQ_density_%s.jpeg", sp)),
+    ggsave(here("FIG", sprintf("Fig2_LFQ_density_%s.png", sp)),
            p, width = 8, height = 6, dpi = fig_dpi)
   }
 })
@@ -332,7 +332,7 @@ p_heatmap_coq <- {
 p_heatmap_coq
 
 # guardar
-ggsave(here("FIG", "Fig2c_LFQ_heatmap_coquina.jpeg"),
+ggsave(here("FIG", "Fig2c_LFQ_heatmap_coquina.png"),
        p_heatmap_coq, width = 7, height = 9, dpi = fig_dpi)
 
 
@@ -361,7 +361,7 @@ fig_violin <- ggplot(tallas_co,   # ya viene filtrado a Poblacional, sin refiltr
 fig_violin
 
 # guardar
-ggsave(here("FIG", "FigS3_SizeViolin.jpeg"), fig_violin, width = 14, height = 5, dpi = fig_dpi)
+ggsave(here("FIG", "FigS3_SizeViolin.png"), fig_violin, width = 14, height = 5, dpi = fig_dpi)
 
 ## 2.7 Comparison boxplot (Figure 5) ------------------------------------------
 # Nota: el p-valor anotado aqui via stat_compare_means es descriptivo
@@ -379,7 +379,7 @@ fig5 <- ggplot(tallas_co, aes(x = Area, y = TALLA, fill = Area)) +
        title = expression("Size comparison — " * italic("D. trunculus"))) +
   theme_reclam + theme(legend.position = "none")
 
-ggsave(here("FIG", "Fig5_SizeComparison.jpeg"), fig5, width = 6, height = 5, dpi = fig_dpi)
+ggsave(here("FIG", "Fig5_SizeComparison.png"), fig5, width = 6, height = 5, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -543,7 +543,7 @@ fig3b <- ggplot(phi_df, aes(x = Area, y = Phi_prime, fill = Area)) +
 fig3 <- (fig3a | fig3b) +
   plot_annotation(tag_levels = "a")
 
-ggsave(here("FIG", "Fig3_VBGF_panel.jpeg"), fig3, width = 12, height = 5, dpi = fig_dpi)
+ggsave(here("FIG", "Fig3_VBGF_panel.png"), fig3, width = 12, height = 5, dpi = fig_dpi)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -673,7 +673,7 @@ fig_lw <- ggplot(lp, aes(x = LONGITUD,
        colour = "Region") +
   theme_reclam + theme(legend.position = "none")
 
-ggsave(here("FIG", "Fig_LW.jpeg"),
+ggsave(here("FIG", "Fig_LW.png"),
        fig_lw, width = 7,
        height = 5,
        dpi = fig_dpi)
@@ -707,9 +707,13 @@ message("Updated Lorenzen M  GoC: ", round(M_l_c, 3),
 # ─────────────────────────────────────────────────────────────────────────────
 # 7. SECONDARY PRODUCTION (P, B, P/B) — DATA & DESCRIPTIVE FIGURE
 # ─────────────────────────────────────────────────────────────────────────────
-# Bioanalogical model for bivalves (Brey 2001):
-#   log₁₀(P/B) = 0.8067 − 0.1883·log₁₀(AFDW) + 0.6918·log₁₀(T) − 0.3697·log₁₀(M)
-# AFDW ≈ 0.065 · WW (conversion factor for Donax; update with lab ash data)
+# P, B and P/B per station/replicate come from DATA/Data_produccion.csv,
+# estimated outside this script with the mass-specific growth rate method
+# (Brey 2001; Delgado et al. 2017): SL-AFDW relationship (Delgado et al. 2017),
+# pooled length distributions and VBGF parameters from the literature
+# (Delgado et al. 2017 for GoC; Ramón et al. 1995 for GoV), NOT from the
+# ELEFAN_GA fits of section 3. Annual period: Jul 2024–Jun 2025 (GoC),
+# Sep 2024–Aug 2025 (GoV). See docs/Texto Producción secundaria.docx.
 # El test formal de diferencia Cadiz vs. Valencia (LMM B ~ Localizacion) vive
 # en la Sec. 10.5, junto con el resto de comparaciones regionales -- aca solo
 # se lee el dato y se arma la figura descriptiva.
@@ -771,7 +775,7 @@ panel_PB <- (p_B | p_P | p_R) +
 panel_PB
 
 # guardar
-ggsave(here("FIG", "FigX_P_B_Ratio.jpeg"), panel_PB,
+ggsave(here("FIG", "FigX_P_B_Ratio.png"), panel_PB,
        width = 8, height = 4, dpi = fig_dpi)
 
 
@@ -1005,7 +1009,7 @@ fig7 <- (p_recruit | p_dens | p_cpue) +
 fig7
 
 # guardar
-ggsave(here("FIG", "Fig7_PopIndicators_ByRegion.jpeg"), fig7,
+ggsave(here("FIG", "Fig7_PopIndicators_ByRegion.png"), fig7,
        width = 8, height = 3, dpi = fig_dpi)
 
 
@@ -1034,7 +1038,7 @@ write_csv(tab_indicators, here("RESULTS", "Table_Density_CPUE_Monthly.csv"))
 #   2. Indicadores poblacionales — Reclutamiento | Densidad | CPUE (Sec. 8)
 #   3. Performance — Phi' (Sec. 4) + LW (Sec. 6) + P/B (Sec. 7)
 #      (Biomasa y Produccion se sacaron del compuesto -- quedan solo en la
-#      figura standalone FigX_P_B_Ratio.jpeg de la Sec. 7)
+#      figura standalone FigX_P_B_Ratio.png de la Sec. 7)
 
 col_cadiz    <- unname(pal_area["Cadiz"])
 col_valencia <- unname(pal_area["Valencia"])
@@ -1106,7 +1110,7 @@ row_ind <- (p_recruit | p_dens | p_cpue) &
 # fig3b y fig_lw ya existen -- se reusan tal cual, sin su propio
 # plot_annotation para que el tag_levels quede unico a nivel de fig6.
 # p_B y p_P (Biomasa, Produccion) quedan fuera del compuesto a pedido --
-# siguen disponibles en panel_PB / FigX_P_B_Ratio.jpeg (Sec. 7) tal cual.
+# siguen disponibles en panel_PB / FigX_P_B_Ratio.png (Sec. 7) tal cual.
 #
 # p_R (Stations) se usa con leyenda DENTRO del panel (inset) en vez de
 # plot_layout(guides="collect") -- asi no le come ancho a la fila entera
@@ -1141,7 +1145,7 @@ fig6 <- row_heat / row_ind / row_perf +
 fig6
 
 # guardar
-ggsave(here("FIG", "Fig6_Composite_ByRegion.jpeg"), fig6,
+ggsave(here("FIG", "Fig6_Composite_ByRegion.png"), fig6,
        width = 7, height = 7, dpi = fig_dpi)
 
 
@@ -1232,7 +1236,7 @@ fig_diag <- ggplot(diag_df, aes(x = fitted, y = resid_std, colour = Area)) +
        title = "LMM diagnostics — residuals vs. fitted") +
   theme_reclam
 
-ggsave(here("FIG", "FigS1_LMM_diag.jpeg"), fig_diag, width = 7, height = 5, dpi = fig_dpi)
+ggsave(here("FIG", "FigS1_LMM_diag.png"), fig_diag, width = 7, height = 5, dpi = fig_dpi)
 
 ## 10.2 Wilcoxon — Recruitment, Density, CPUE (unidad = estacion x mes) --------
 ## Talla NO entra aca -- su test confirmatorio es el LMM de 10.1
@@ -1478,7 +1482,7 @@ ft <- tab_master |>
   ) |>
   bold(part = "header") |>
   fontsize(size = 9, part = "all") |>
-  font(fontname = "Times New Roman", part = "all") |>
+  flextable::font(fontname = "Times New Roman", part = "all") |>
   border_outer(border = officer::fp_border(color = "grey40", width = 1)) |>
   autofit()
 

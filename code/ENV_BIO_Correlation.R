@@ -11,6 +11,7 @@
 #   4.  Environmental context: monthly series + sampling window
 #   5.  Spearman correlations at lags 0, 1, 2 + FDR correction
 #   6.  PCA of environmental space + biological overlay
+#   6e. Combined PCA figure for regional differences (population + environment)
 #   7.  GAM drivers of population indicators, by region
 #   7b. Pooled GAM (both regions) with region x environment interaction
 #   8.  Export tables
@@ -332,7 +333,7 @@ fig_context <- (fig_context_sst / fig_context_mhw) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
-save_fig("FigS_ENV_Context.jpeg", fig_context)
+save_fig("FigS_ENV_Context.png", fig_context)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -420,7 +421,7 @@ plot_corr_heatmap <- function(corr_df, vars) {
 }
 
 fig_corr_heat <- plot_corr_heatmap(corr_results, env_vars)
-save_fig("Fig_Spearman_Heatmap.jpeg", fig_corr_heat)
+save_fig("Fig_Spearman_Heatmap.png", fig_corr_heat)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -494,7 +495,7 @@ run_env_pca <- function(vars) {
 
 pca_env <- run_env_pca(env_vars)
 pca_load_tab <- pca_env$loadings
-save_fig("Fig_PCA_ENV.jpeg", pca_env$fig)
+save_fig("Fig_PCA_ENV.png", pca_env$fig)
 write_csv(pca_load_tab, here("RESULTS", "Table_PCA_Loadings.csv"))
 
 
@@ -557,7 +558,7 @@ fig_pca_bio <- ggplot(scores_bio, aes(x = PC1, y = PC2)) +
        colour = "Region") +
   theme_reclam
 
-save_fig("Fig_PCA_BIO.jpeg", fig_pca_bio)
+save_fig("Fig_PCA_BIO.png", fig_pca_bio)
 
 pca_load_tab_bio <- as_tibble(pca_fit_bio$rotation[, 1:2], rownames = "variable") |>
   mutate(variable = bio_short[variable],
@@ -699,9 +700,9 @@ pca_ri   <- run_bio_env_pca("RI")
 pca_cpue <- run_bio_env_pca("CPUE")
 pca_dens <- run_bio_env_pca("Density")
 
-save_fig("Fig_PCA_RI_ENV.jpeg",      pca_ri$fig)
-save_fig("Fig_PCA_CPUE_ENV.jpeg",    pca_cpue$fig)
-save_fig("Fig_PCA_Densidad_ENV.jpeg", pca_dens$fig)
+save_fig("Fig_PCA_RI_ENV.png",      pca_ri$fig)
+save_fig("Fig_PCA_CPUE_ENV.png",    pca_cpue$fig)
+save_fig("Fig_PCA_Densidad_ENV.png", pca_dens$fig)
 
 write_csv(pca_ri$loadings,   here("RESULTS", "Table_PCA_Loadings_RI_ENV.csv"))
 write_csv(pca_cpue$loadings, here("RESULTS", "Table_PCA_Loadings_CPUE_ENV.csv"))
@@ -713,7 +714,7 @@ fig_pca_bio_panel <- (pca_ri$fig + pca_cpue$fig + pca_dens$fig) +
   plot_layout(ncol = 3, guides = "collect") +
   plot_annotation(tag_levels = "a")
 
-save_fig("Fig_PCA_BIO_panel.jpeg", fig_pca_bio_panel)
+save_fig("Fig_PCA_BIO_panel.png", fig_pca_bio_panel)
 
 ## 6d.5 PERMANOVA — indicator + environment space (EXPLORATORY) ---------------
 # A significant result here indicates that regions occupy different parts of
@@ -757,6 +758,99 @@ permanova_env_results <- bind_rows(
 
 print(permanova_env_results)
 write_csv(permanova_env_results, here("RESULTS", "Table_PERMANOVA_byVariable_ENV_supl.csv"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6e. REGIONAL DIFFERENCES — COMBINED PCA FIGURE (manuscript, Section 3.2.1)
+#     (a) population-indicator space (RI, CPUE, Density; fig_pca_bio, 6c)
+#     (b) environmental space restricted to the sampling window
+#         (SST, wind, runoff, MHW days; same months as the biological data)
+#     Panel (a) shows how the populations differ; panel (b) shows whether
+#     the sampled months also occupy different environmental conditions.
+# ─────────────────────────────────────────────────────────────────────────────
+
+env_samp <- env |>
+  filter(date >= OVERLAP_START, date <= OVERLAP_END) |>
+  semi_join(bio_monthly, by = c("region", "year", "month")) |>   # sampled months only
+  dplyr::select(region, year, month, all_of(env_vars)) |>
+  drop_na() |>
+  mutate(Area  = str_to_title(region),
+         label = month_label(month, year))
+
+pca_fit_env_samp <- prcomp(env_samp |> dplyr::select(all_of(env_vars)),
+                           scale. = TRUE, center = TRUE)
+
+scores_env_samp <- as_tibble(pca_fit_env_samp$x[, 1:2]) |>
+  bind_cols(env_samp |> dplyr::select(Area, region, year, month, label))
+
+var_exp_env_samp <- round(summary(pca_fit_env_samp)$importance[2, 1:2] * 100, 1)
+
+hull_env_samp <- scores_env_samp |>
+  group_by(Area) |>
+  slice(chull(PC1, PC2)) |>
+  ungroup()
+
+loadings_env_samp <- as_tibble(pca_fit_env_samp$rotation[, 1:2], rownames = "variable") |>
+  mutate(variable_short = env_labels[variable])
+
+fig_pca_env_samp <- ggplot(scores_env_samp, aes(x = PC1, y = PC2)) +
+  geom_polygon(data = hull_env_samp, aes(fill = Area, colour = Area),
+               alpha = 0.12, linewidth = 0.4) +
+  geom_point(aes(colour = Area), size = 2.2, alpha = 0.9) +
+  geom_text_repel(aes(label = label, colour = Area), size = 2.3,
+                  max.overlaps = 20, show.legend = FALSE) +
+  geom_segment(data = loadings_env_samp,
+               aes(x = 0, y = 0, xend = PC1 * scale_arrow, yend = PC2 * scale_arrow),
+               arrow = arrow(length = unit(0.2, "cm")), colour = "grey30", linewidth = 0.6) +
+  geom_text_repel(data = loadings_env_samp,
+                  aes(x = PC1 * scale_arrow * 1.15, y = PC2 * scale_arrow * 1.15,
+                      label = variable_short),
+                  size = 3, colour = "grey20", segment.colour = NA,
+                  min.segment.length = Inf, seed = 2025) +
+  scale_colour_manual(values = pal_area, labels = region_labels) +
+  scale_fill_manual(values = pal_area, guide = "none") +
+  labs(x = sprintf("PC1 (%s%%)", var_exp_env_samp[1]),
+       y = sprintf("PC2 (%s%%)", var_exp_env_samp[2]),
+       colour = "Region") +
+  theme_reclam
+
+write_csv(as_tibble(pca_fit_env_samp$rotation[, 1:2], rownames = "env_variable") |>
+            mutate(across(where(is.numeric), \(x) round(x, 3))),
+          here("RESULTS", "Table_PCA_Loadings_ENV_sampling.csv"))
+
+## 6e.1 PERMANOVA — environmental space of the sampled months ---------------
+# Same test as 6c.1, applied to the environmental conditions of the sampled
+# months, for comparison with the population-indicator separation.
+
+set.seed(2025)
+dist_env_samp <- vegan::vegdist(scale(env_samp |> dplyr::select(all_of(env_vars))),
+                                method = "euclidean")
+permanova_env_samp <- vegan::adonis2(dist_env_samp ~ Area, data = env_samp, permutations = 999)
+permdisp_env_samp  <- vegan::permutest(vegan::betadisper(dist_env_samp, env_samp$Area),
+                                       permutations = 999)
+
+permanova_space_tab <- bind_rows(
+  permanova_bio_result,
+  tibble(space       = "SST + wind + runoff + MHW days (sampling months)",
+         R2          = round(permanova_env_samp$R2[1], 3),
+         F_permanova = round(permanova_env_samp$F[1], 2),
+         p_permanova = permanova_env_samp$`Pr(>F)`[1],
+         F_permdisp  = round(permdisp_env_samp$tab$F[1], 2),
+         p_permdisp  = permdisp_env_samp$tab$`Pr(>F)`[1],
+         n_cadiz     = sum(env_samp$Area == "Cadiz"),
+         n_valencia  = sum(env_samp$Area == "Valencia"))
+)
+print(permanova_space_tab)
+write_csv(permanova_space_tab, here("RESULTS", "Table_PERMANOVA_BIO_vs_ENV.csv"))
+
+## 6e.2 Combined panel ---------------------------------------------------------
+
+fig_pca_regional <- (fig_pca_bio | fig_pca_env_samp) +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "a") &
+  theme(legend.position = "bottom")
+
+save_fig("Fig_PCA_Regional_BIO_ENV.png", fig_pca_regional, width = 8, height = 4.5)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -851,7 +945,7 @@ fig_gam_heat_region <- gam_results_region |>
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
         legend.position = "right")
 
-save_fig("Fig_GAM_Heatmap_byRegion.jpeg", fig_gam_heat_region)
+save_fig("Fig_GAM_Heatmap_byRegion.png", fig_gam_heat_region)
 
 ## 7.3 Partial effects (smooths) by region ------------------------------------
 # .build_gam_partial(): fits bio ~ s(env, k = 3) for one combination and
@@ -933,7 +1027,7 @@ save_fig("Fig_GAM_Heatmap_byRegion.jpeg", fig_gam_heat_region)
 plot_gam_partial <- function(bio_v, env_v, area_nm, lag_suffix = "lag0") {
   p <- .build_gam_partial(bio_v, env_v, area_nm, lag_suffix)
   env_col <- if (lag_suffix == "lag0") env_v else paste0(env_v, "_", lag_suffix)
-  fname <- paste0("Fig_GAM_partial_", bio_v, "_", env_col, "_", area_nm, ".jpeg")
+  fname <- paste0("Fig_GAM_partial_", bio_v, "_", env_col, "_", area_nm, ".png")
   save_fig(fname, p)
   message("Saved: ", fname)
   p
@@ -955,7 +1049,7 @@ plot_gam_partial_grid <- function(area_nm, lag_suffix = "lag0") {
 
   panel <- patchwork::wrap_plots(plots, ncol = length(env_vars))
 
-  fname <- paste0("Fig_GAM_Smooths_", lag_suffix, "_", area_nm, ".jpeg")
+  fname <- paste0("Fig_GAM_Smooths_", lag_suffix, "_", area_nm, ".png")
   save_fig(fname, panel, width = GAM_W, height = GAM_H)
   message("Saved: ", fname)
   panel
@@ -1178,7 +1272,7 @@ fig_gam_pooled <- wrap_plots(best_plots, ncol = 2) + guide_area() +
   plot_annotation(tag_levels = "a") &
   theme(legend.direction = "vertical")
 
-save_fig("Fig_GAM_pooled_best.jpeg", fig_gam_pooled, width = 6, height = 7)
+save_fig("Fig_GAM_pooled_best.png", fig_gam_pooled, width = 6, height = 7)
 
 ## 7b.7 Heatmap of model support (ΔAIC) for every indicator x variable x lag --
 # Fill = ΔAIC of the best environmental model (M1 or M2) vs. region only (M0)
@@ -1207,7 +1301,7 @@ fig_daic <- res_pooled |>
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "bottom", legend.key.width = unit(1.2, "cm"))
 
-save_fig("Fig_GAM_pooled_dAIC.jpeg", fig_daic, width = 6, height = 7)
+save_fig("Fig_GAM_pooled_dAIC.png", fig_daic, width = 6, height = 7)
 
 ## 7b.8 Full panel, response scale: 4 env (rows) x 5 indicators (cols) --------
 # One figure per lag; each panel follows the ΔAIC support rule (subtitle code).
@@ -1254,13 +1348,29 @@ plot_pooled_grid <- function(lag = 0, width = 7, height = 5.5) {
   fig <- wrap_plots(plots, ncol = length(bio_lab), guides = "collect") &
     theme(legend.position = "bottom")
 
-  fname <- paste0("Fig_GAM_pooled_grid_lag", lag, ".jpeg")
+  fname <- paste0("Fig_GAM_pooled_grid_lag", lag, ".png")
   save_fig(fname, fig, width = width, height = height)
   message("Saved: ", fname)
   fig
 }
 
 walk(0:2, plot_pooled_grid)
+
+## 7b.8b SST row at lag 1 (manuscript figure, Section 3.2.2) ----------------
+# The five indicators against SST lagged one month, same models and support
+# rule as the full grid (7b.8). Lag 1 is used as the reference lag because
+# it matches the delay between the spawning season and the entry of recruits
+# into the samples; the other lags are shown in the ΔAIC heatmap (7b.7) and
+# in the supplementary grids.
+
+sst_lag1_plots <- map(names(bio_lab), \(b)
+  plot_cell(b, "sst_mean", 1) + labs(x = "SST, lag 1 month (°C)"))
+
+fig_gam_pooled_sst_lag1 <- wrap_plots(sst_lag1_plots, ncol = 3) + guide_area() +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+
+save_fig("Fig_GAM_pooled_SST_lag1.png", fig_gam_pooled_sst_lag1, width = 7, height = 4.5)
 
 ## 7b.9 Partial effects of the pooled GAM: 4 env (rows) x 5 indicators (cols) -
 # y-axis = partial effect s(env) on the link scale (centred, as plot.gam);
@@ -1343,7 +1453,7 @@ plot_partial_grid <- function(lag = 0, width = 7, height = 5.5) {
   fig <- wrap_plots(plots, ncol = length(bio_lab), guides = "collect") &
     theme(legend.position = "bottom")
 
-  fname <- paste0("Fig_GAM_pooled_partial_lag", lag, ".jpeg")
+  fname <- paste0("Fig_GAM_pooled_partial_lag", lag, ".png")
   save_fig(fname, fig, width = width, height = height)
   message("Saved: ", fname)
   fig
@@ -1391,15 +1501,17 @@ message("\n========================================")
 message(" ENV_BIO_Correlation.R — done.")
 message(" Figures in : ", here("FIG"), "  (", FIG_W, " x ", FIG_H, " in, ", FIG_DPI, " dpi)")
 message(" Results in : ", here("RESULTS"))
-message("  · FigS_ENV_Context.jpeg               — environmental context (SST + MHW days)")
-message("  · Fig_Spearman_Heatmap.jpeg           — Spearman rho, lags 0–2")
-message("  · Fig_PCA_ENV.jpeg                    — environmental PCA + sampling months")
-message("  · Fig_PCA_BIO.jpeg                    — population-indicator PCA (RI, CPUE, Density)")
-message("  · Fig_PCA_BIO_panel.jpeg              — indicator + environment PCAs (a–c, supplementary)")
-message("  · Fig_GAM_Heatmap_byRegion.jpeg       — GAM deviance explained, by region and lag")
-message("  · Fig_GAM_Smooths_lag0_Cadiz.jpeg / _Valencia.jpeg — GAM partial effects")
-message("  · Fig_GAM_pooled_best.jpeg / Fig_GAM_pooled_dAIC.jpeg — pooled GAM (region x env)")
-message("  · Fig_GAM_pooled_grid_lag0-2.jpeg / Fig_GAM_pooled_partial_lag0-2.jpeg")
+message("  · FigS_ENV_Context.png               — environmental context (SST + MHW days)")
+message("  · Fig_Spearman_Heatmap.png           — Spearman rho, lags 0–2")
+message("  · Fig_PCA_ENV.png                    — environmental PCA + sampling months")
+message("  · Fig_PCA_BIO.png                    — population-indicator PCA (RI, CPUE, Density)")
+message("  · Fig_PCA_BIO_panel.png              — indicator + environment PCAs (a–c, supplementary)")
+message("  · Fig_PCA_Regional_BIO_ENV.png       — regional differences: (a) population PCA, (b) env PCA of sampled months")
+message("  · Fig_GAM_Heatmap_byRegion.png       — GAM deviance explained, by region and lag")
+message("  · Fig_GAM_Smooths_lag0_Cadiz.png / _Valencia.png — GAM partial effects")
+message("  · Fig_GAM_pooled_best.png / Fig_GAM_pooled_dAIC.png — pooled GAM (region x env)")
+message("  · Fig_GAM_pooled_grid_lag0-2.png / Fig_GAM_pooled_partial_lag0-2.png")
+message("  · Fig_GAM_pooled_SST_lag1.png         — pooled GAM, SST lag 1, five indicators (manuscript)")
 message("  · Tables: Table_Spearman_ENV_BIO.csv, Table_PCA_Loadings*.csv,")
 message("            Table_PERMANOVA_BIO.csv, Table_Wilcoxon_byVariable.csv,")
 message("            Table_PERMANOVA_byVariable_ENV_supl.csv, Table_GAM_ENV_BIO_byRegion.csv,")
